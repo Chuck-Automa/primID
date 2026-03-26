@@ -1,8 +1,6 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../../shared/db/prisma');
 const { generateOtp, sendOtp } = require('../../shared/utils/otp.util');
 const { verifyOAuthToken } = require('../verify/verify.controller');
-
-const prisma = new PrismaClient();
 
 /**
  * POST /api/auth/register

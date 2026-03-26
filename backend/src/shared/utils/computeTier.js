@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../db/prisma');
 
 /**
  * Compute tier from user verification booleans (pure function, no DB).

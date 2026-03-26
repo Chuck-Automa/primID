@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../shared/db/prisma');
 
 const VALID_PLATFORMS = [
   'facebook', 'x', 'signal', 'telegram', 'linkedin', 'instagram',

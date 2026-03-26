@@ -1,11 +1,9 @@
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../../shared/db/prisma');
 const axios = require('axios');
 const { validateOtp, generateOtp, sendOtp } = require('../../shared/utils/otp.util');
 const { computeAndSaveTier } = require('../../shared/utils/computeTier');
 const { generateToken } = require('../../shared/utils/jwt.util');
 const features = require('../../shared/flags/features');
-
-const prisma = new PrismaClient();
 
 // POST /api/verify/phone/initiate
 const initiatePhone = async (req, res, next) => {

@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../db/prisma');
 
 /**
  * requireTier(minTier) — enforce minimum tier level on a route.

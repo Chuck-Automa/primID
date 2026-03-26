@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const prisma = require('../../shared/db/prisma');
 
 // POST /api/attestations
 const createAttestation = async (req, res, next) => {
