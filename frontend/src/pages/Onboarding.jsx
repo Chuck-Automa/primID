@@ -65,14 +65,6 @@ export default function Onboarding() {
       // In dev, use stub token. In production, integrate Google/Apple SDK.
       const testToken = provider === 'google' ? 'google_test_token' : 'apple_test_token';
 
-      // Note: Production Google OAuth requires actual flow (e.g., @react-oauth/google).
-      // This is a dev placeholder.
-      if (process.env.NODE_ENV !== 'development') {
-        setOauthError('OAuth requires production configuration. Use phone OTP in dev.');
-        setOauthLoading(false);
-        return;
-      }
-
       const resp = await api.post('/api/verify/oauth', { provider, token: testToken });
       localStorage.setItem('primid_token', resp.data.token);
       localStorage.setItem('primid_user', JSON.stringify(resp.data.user));
