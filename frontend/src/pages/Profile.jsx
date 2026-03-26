@@ -1,0 +1,196 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import TierBadge from '../components/TierBadge';
+import api from '../services/api';
+
+const containerStyle = {
+  padding: '76px 24px 100px',
+};
+
+const sectionStyle = {
+  marginBottom: '28px',
+  padding: '16px',
+  background: '#f8f9fa',
+  borderRadius: '10px',
+};
+
+const labelStyle = { fontSize: '12px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' };
+const valueStyle = { fontSize: '15px', fontWeight: 500, marginTop: '4px' };
+
+const upgradeCardStyle = {
+  padding: '16px',
+  background: '#eaf4fb',
+  borderRadius: '10px',
+  marginBottom: '12px',
+  borderLeft: '4px solid #457b9d',
+};
+
+export default function Profile() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get('/api/user/me')
+      .then((r) => setUser(r.data.user))
+      .catch(() => setError('Failed to load profile.'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('primid_token');
+    localStorage.removeItem('primid_user');
+    navigate('/');
+  };
+
+  if (loading) return <div style={{ padding: '40px 24px' }}>Loading…</div>;
+  if (error) return <div style={{ padding: '40px 24px', color: '#c0392b' }}>{error}</div>;
+  if (!user) return null;
+
+  const tierNames = { 0: 'Full Personhood', 1: 'Single CVA', 2: 'OAuth Verified', 3: 'Phone Verified', null: 'Ghost' };
+
+  return (
+    <div style={containerStyle}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700 }}>Your Identity</h1>
+        <button
+          onClick={handleLogout}
+          style={{ background: 'none', border: 'none', color: '#888', fontSize: '14px', cursor: 'pointer' }}
+        >
+          Log out
+        </button>
+      </div>
+
+      <div style={{ marginBottom: '28px' }}>
+        <TierBadge tier={user.currentTier} size="large" />
+        <p style={{ marginTop: '12px', fontSize: '14px', color: '#666' }}>
+          Tier {user.currentTier ?? 'Ghost'} — {tierNames[user.currentTier]}
+        </p>
+      </div>
+
+      <div style={sectionStyle}>
+        <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '14px' }}>Trust Tiers</h2>
+
+        {[
+          {
+            tier: 3,
+            symbol: '■',
+            color: '#e76f51',
+            name: 'Phone Verified',
+            description: 'SMS one-time passcode',
+            completed: user.phoneVerified,
+            date: user.phoneVerifiedAt,
+          },
+          {
+            tier: 2,
+            symbol: '▲',
+            color: '#457b9d',
+            name: 'OAuth Verified',
+            description: user.oauthProvider ? `${user.oauthProvider}` : 'Google or Apple',
+            completed: !!user.oauthVerifiedAt,
+            date: user.oauthVerifiedAt,
+            link: '/verify/oauth',
+          },
+          {
+            tier: 1,
+            symbol: '◑',
+            color: '#2d6a4f',
+            name: 'Single CVA',
+            description: 'zkPassport, zkEmail, PoH, or Ecoinmter',
+            completed: user.zkPassportVerified || user.zkEmailVerified || user.pohVerified || user.ecoinmterVerified,
+            date: user.zkPassportVerifiedAt || user.zkEmailVerifiedAt || user.pohVerifiedAt || user.ecoinmterVerifiedAt,
+          },
+          {
+            tier: 0,
+            symbol: '●',
+            color: '#1a1a2e',
+            name: 'Full Personhood',
+            description: 'Any two ZK proofs from the pool',
+            completed: user.currentTier === 0,
+            date: null,
+          },
+        ].map(({ tier, symbol, color, name, description, completed, date, link }) => (
+          <div
+            key={tier}
+            onClick={() => !completed && link && navigate(link)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: '10px 0',
+              borderBottom: '1px solid #eee',
+              cursor: !completed && link ? 'pointer' : 'default',
+            }}
+          >
+            <span style={{ fontSize: '20px', color: completed ? color : '#ccc', width: '20px', textAlign: 'center' }}>
+              {symbol}
+            </span>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: '13px', fontWeight: 600, color: completed ? '#222' : '#aaa', margin: 0 }}>
+                Tier {tier} — {name}
+              </p>
+              <p style={{ fontSize: '11px', color: '#aaa', margin: '2px 0 0' }}>{description}</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              {completed ? (
+                <>
+                  <span style={{ fontSize: '12px', color: '#2d6a4f', fontWeight: 600 }}>✓ Done</span>
+                  {date && (
+                    <p style={{ fontSize: '10px', color: '#aaa', margin: '2px 0 0' }}>
+                      {new Date(date).toLocaleDateString()}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <span style={{ fontSize: '13px', color: link ? '#457b9d' : '#ccc' }}>
+                  {link ? '›' : 'Not yet'}
+                </span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Upgrade prompts — informational only in Sprint 1 */}
+      {(user.currentTier === null || user.currentTier >= 2) && (
+        <div>
+          <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '14px' }}>Unlock higher trust</h2>
+
+          {(user.currentTier === null || user.currentTier === 3) && (
+            <div style={upgradeCardStyle}>
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 2 — Connect Google or Apple</p>
+              <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+                Sign in with Google or Apple to reach Tier 2 and extend your session to 90 days.
+              </p>
+            </div>
+          )}
+
+          {user.currentTier >= 2 && (
+            <div style={upgradeCardStyle}>
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 1 — Add a ZK proof</p>
+              <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+                Connect zkPassport, zkEmail, Proof of Humanity, or Ecoinmter to reach Tier 1. (Available in Sprint 2)
+              </p>
+            </div>
+          )}
+
+          {(user.currentTier === 1) && (
+            <div style={upgradeCardStyle}>
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 0 — Add a second ZK proof</p>
+              <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+                Any two verifications from the pool of four protocols qualifies you for Full Personhood. (Available in Sprint 2)
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ marginTop: '24px' }}>
+        <p style={{ fontSize: '11px', color: '#bbb' }}>User ID: {user.id}</p>
+        <p style={{ fontSize: '11px', color: '#bbb' }}>Member since: {new Date(user.createdAt).toLocaleDateString()}</p>
+      </div>
+    </div>
+  );
+}

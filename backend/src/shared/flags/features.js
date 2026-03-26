@@ -1,0 +1,11 @@
+module.exports = {
+  ZK_PASSPORT: false,
+  ZK_EMAIL: false,
+  POH: false,
+  ECOINMTER: false,
+  PRIVY: false,
+  FARCASTER_HUB: false,
+  EAS: false,
+  AGENT_DELEGATION: false,
+  EIN_VERIFICATION: false,
+};

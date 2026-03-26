@@ -1,0 +1,44 @@
+# === Dependencies ===
+node_modules/
+.pnp
+.pnp.js
+
+# === Environment secrets — NEVER commit these ===
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# === Dev HTTPS certificates — never commit private keys ===
+certs/
+
+# === Production build output ===
+frontend/build/
+
+# === Logs ===
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# === OS ===
+.DS_Store
+Thumbs.db
+
+# === IDEs ===
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# === Prisma ===
+# Keep schema.prisma and migrations/ committed; exclude generated client
+backend/node_modules/.prisma/
+
+# === Misc ===
+*.pem
+*.crt
+*.key
+.npm

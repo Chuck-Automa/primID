@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String    @id @default(uuid())
+  walletAddress        String?   @map("wallet_address")
+  phoneNumber          String?   @unique @map("phone_number")
+  phoneVerified        Boolean   @default(false) @map("phone_verified")
+  phoneVerifiedAt      DateTime? @map("phone_verified_at")
+  oauthProvider        String?   @map("oauth_provider")
+  oauthVerifiedAt      DateTime? @map("oauth_verified_at")
+  biometricLastUsedAt  DateTime? @map("biometric_last_used_at")
+  zkPassportVerified   Boolean   @default(false) @map("zk_passport_verified")
+  zkPassportVerifiedAt DateTime? @map("zk_passport_verified_at")
+  zkEmailVerified      Boolean   @default(false) @map("zk_email_verified")
+  zkEmailVerifiedAt    DateTime? @map("zk_email_verified_at")
+  pohVerified          Boolean   @default(false) @map("poh_verified")
+  pohVerifiedAt        DateTime? @map("poh_verified_at")
+  ecoinmterVerified    Boolean   @default(false) @map("ecoinmter_verified")
+  ecoinmterVerifiedAt  DateTime? @map("ecoinmter_verified_at")
+  currentTier          Int?      @map("current_tier")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  issuedAttestations   Attestation[] @relation("issuer")
+  receivedAttestations Attestation[] @relation("subject")
+  socialAccounts       SocialAccount[]
+
+  @@map("users")
+}
+
+model Attestation {
+  id              String    @id @default(uuid())
+  issuerId        String    @map("issuer_user_id")
+  subjectId       String    @map("subject_user_id")
+  attestationType String    @map("attestation_type")
+  consentGivenAt  DateTime? @map("consent_given_at")
+  publicAt        DateTime? @map("public_at")
+  revokedAt       DateTime? @map("revoked_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  issuer  User @relation("issuer", fields: [issuerId], references: [id])
+  subject User @relation("subject", fields: [subjectId], references: [id])
+
+  @@map("attestations")
+}
+
+model SocialAccount {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  platform   String
+  handle     String
+  isPublic   Boolean   @default(false) @map("is_public")
+  attestedAt DateTime? @map("attested_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("social_accounts")
+}
