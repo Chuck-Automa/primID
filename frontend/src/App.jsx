@@ -50,36 +50,12 @@ const appStyle = {
   boxShadow: '0 0 20px rgba(0,0,0,0.08)',
 };
 
-const navStyle = {
-  display: 'flex',
-  borderTop: '1px solid #eee',
-  position: 'fixed',
-  bottom: 0,
-  left: '50%',
-  transform: 'translateX(-50%)',
-  width: '100%',
-  maxWidth: '480px',
-  background: '#fff',
-  zIndex: 100,
-};
-
-const navLinkStyle = {
-  flex: 1,
-  padding: '12px 8px',
-  textAlign: 'center',
-  fontSize: '12px',
-  color: '#666',
-  textDecoration: 'none',
-  display: 'block',
-};
-
 export default function App() {
-  const token = getToken();
-
   return (
     <ErrorBoundary>
     <BrowserRouter>
       <div style={appStyle}>
+        <Navbar />
         <Routes>
           <Route path="/" element={<Onboarding />} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
@@ -87,16 +63,6 @@ export default function App() {
           <Route path="/social" element={<RequireAuth><SocialAccounts /></RequireAuth>} />
           <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
         </Routes>
-
-        <Navbar />
-
-        {token && (
-          <nav style={navStyle}>
-            <a href="/profile" style={navLinkStyle}>Profile</a>
-            <a href="/attestations" style={navLinkStyle}>Attests</a>
-            <a href="/social" style={navLinkStyle}>Social</a>
-          </nav>
-        )}
       </div>
     </BrowserRouter>
     </ErrorBoundary>
