@@ -88,7 +88,7 @@ export default function App() {
           <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
         </Routes>
 
-        {token && <Navbar />}
+        <Navbar />
 
         {token && (
           <nav style={navStyle}>
