@@ -1,0 +1,119 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import Profile from '../Profile';
+
+jest.mock('../../services/api');
+import api from '../../services/api';
+
+// useNavigate must be mocked since we're not in a real router context
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+  useLocation: () => ({ state: null }),
+}));
+
+function makeUser(overrides = {}) {
+  return {
+    id: 'uid-profile-test',
+    phoneVerified: true,
+    phoneVerifiedAt: '2024-01-01T00:00:00.000Z',
+    oauthProvider: 'google',
+    oauthVerifiedAt: '2024-02-01T00:00:00.000Z',
+    biometricEverUsed: false,
+    zkPassportVerified: false,
+    zkEmailVerified: false,
+    pohVerified: false,
+    ecoinmterVerified: false,
+    currentTier: 2,
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-02-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function renderProfile() {
+  return render(
+    <MemoryRouter>
+      <Profile />
+    </MemoryRouter>
+  );
+}
+
+describe('Profile page', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    localStorage.clear();
+  });
+
+  test('shows loading state initially', () => {
+    api.get = jest.fn().mockReturnValue(new Promise(() => {})); // never resolves
+    renderProfile();
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+
+  test('renders tier badge and tier name after load', async () => {
+    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    renderProfile();
+    await waitFor(() => expect(screen.getByText(/Your Identity/i)).toBeInTheDocument());
+    expect(screen.getAllByText('▲').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/OAuth Verified/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('shows "Done" for completed tiers', async () => {
+    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    renderProfile();
+    await waitFor(() => screen.getByText(/Your Identity/i));
+    // Tier 3 (Phone Verified) and Tier 2 (OAuth) are both done
+    const doneMarkers = screen.getAllByText(/✓ Done/);
+    expect(doneMarkers.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test('shows user ID and member since date', async () => {
+    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    renderProfile();
+    await waitFor(() => screen.getByText(/Your Identity/i));
+    expect(screen.getByText(/uid-profile-test/)).toBeInTheDocument();
+    expect(screen.getByText(/Member since/)).toBeInTheDocument();
+  });
+
+  test('logout button clears localStorage and navigates home', async () => {
+    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    localStorage.setItem('primid_token', 'test-token');
+    localStorage.setItem('primid_user', JSON.stringify({ id: 'uid-1' }));
+
+    renderProfile();
+    await waitFor(() => screen.getByText(/Log out/i));
+    fireEvent.click(screen.getByText(/Log out/i));
+
+    expect(localStorage.getItem('primid_token')).toBeNull();
+    expect(localStorage.getItem('primid_user')).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledWith('/login');
+  });
+
+  test('shows error state when API call fails', async () => {
+    api.get = jest.fn().mockRejectedValue(new Error('Network error'));
+    renderProfile();
+    await waitFor(() => expect(screen.getByText(/Failed to load profile/i)).toBeInTheDocument());
+  });
+
+  test('shows upgrade prompts for Tier 3 user', async () => {
+    api.get = jest.fn().mockResolvedValue({
+      data: { user: makeUser({ currentTier: 3, oauthVerifiedAt: null, oauthProvider: null }) },
+    });
+    renderProfile();
+    await waitFor(() => screen.getByText(/Your Identity/i));
+    expect(screen.getByText(/Tier 2 — Connect Google or Apple/i)).toBeInTheDocument();
+  });
+
+  test('never renders raw phone number or oauthSub', async () => {
+    api.get = jest.fn().mockResolvedValue({
+      data: { user: makeUser({ phoneNumber: '+15555551234', oauthSub: 'google|abc' }) },
+    });
+    renderProfile();
+    await waitFor(() => screen.getByText(/Your Identity/i));
+    expect(screen.queryByText('+15555551234')).not.toBeInTheDocument();
+    expect(screen.queryByText('google|abc')).not.toBeInTheDocument();
+  });
+});

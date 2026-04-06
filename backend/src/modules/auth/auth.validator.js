@@ -1,13 +1,18 @@
 const { body, validationResult } = require('express-validator');
 
+// Phone validation: only check that the value starts with '+' and is non-empty.
+// Full E.164 validation (libphonenumber-js) happens in the controller via normalizePhone().
 const registerValidation = [
   body('method')
     .isIn(['otp', 'oauth'])
     .withMessage('method must be "otp" or "oauth"'),
   body('phoneNumber')
     .if(body('method').equals('otp'))
-    .isMobilePhone()
-    .withMessage('A valid phone number is required for OTP registration'),
+    .notEmpty()
+    .withMessage('phoneNumber is required for OTP')
+    .bail()
+    .matches(/^\+/)
+    .withMessage('Please enter a valid phone number.'),
   body('provider')
     .if(body('method').equals('oauth'))
     .isIn(['google', 'apple'])

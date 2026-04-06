@@ -1,3 +1,5 @@
+const { scrubForLog } = require('./loggerScrub');
+
 const statusMap = new Map([
   ['ValidationError', 400],
   ['JsonWebTokenError', 401],
@@ -37,14 +39,23 @@ const errorHandler = (err, req, res, next) => {
   const isDev = process.env.NODE_ENV === 'development';
 
   if (isDev) {
-    console.error('ERROR:', err);
+    // Scrub PII from request body before logging — phone_number, oauth_sub, etc.
+    // must never appear in logs or error traces.
+    console.error('ERROR:', {
+      name:    err.name,
+      message: err.message,
+      code:    err.code,
+      body:    req.safeBody || scrubForLog(req.body),
+      stack:   err.stack,
+    });
   }
 
   const response = {
     success: false,
     message: getUserMessage(err),
     ...(err.errors && { errors: err.errors }),
-    ...(isDev && { debug: { type: err.name, originalMessage: err.message, stack: err.stack } }),
+    // In dev, expose sanitized debug info — never raw req.body.
+    ...(isDev && { debug: { type: err.name, originalMessage: err.message } }),
   };
 
   res.status(statusCode).json(response);

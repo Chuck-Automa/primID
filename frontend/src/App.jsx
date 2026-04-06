@@ -32,13 +32,31 @@ import SocialAccounts from './pages/SocialAccounts';
 import OAuthVerify from './pages/OAuthVerify';
 import Navbar from './components/Navbar';
 
-function getToken() {
-  return localStorage.getItem('primid_token');
+/**
+ * Returns the stored JWT only if it exists and has not expired.
+ * Checks the `exp` claim in the payload — no signature verification (server handles that).
+ * Clears a stale token from localStorage so the user isn't silently trapped.
+ */
+function getValidToken() {
+  const token = localStorage.getItem('primid_token');
+  if (!token) return null;
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      localStorage.removeItem('primid_token');
+      localStorage.removeItem('primid_user');
+      return null;
+    }
+    return token;
+  } catch {
+    localStorage.removeItem('primid_token');
+    localStorage.removeItem('primid_user');
+    return null;
+  }
 }
 
 function RequireAuth({ children }) {
-  const token = getToken();
-  if (!token) return <Navigate to="/" replace />;
+  if (!getValidToken()) return <Navigate to="/login" replace />;
   return children;
 }
 
@@ -57,11 +75,13 @@ export default function App() {
       <div style={appStyle}>
         <Navbar />
         <Routes>
-          <Route path="/" element={<Onboarding />} />
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/login" element={<Onboarding />} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/attestations" element={<RequireAuth><Attestations /></RequireAuth>} />
           <Route path="/social" element={<RequireAuth><SocialAccounts /></RequireAuth>} />
           <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>
     </BrowserRouter>

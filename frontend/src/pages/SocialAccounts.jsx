@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 
 const PLATFORMS = [
-  { value: 'farcaster', label: 'Farcaster', isPublic: true },
-  { value: 'nostr', label: 'Nostr', isPublic: true },
-  { value: 'bluesky', label: 'Bluesky', isPublic: true },
-  { value: 'github', label: 'GitHub', isPublic: true },
-  { value: 'bitchat', label: 'BitChat', isPublic: true },
+  { value: 'instagram', label: 'Instagram', isPublic: false },
   { value: 'x', label: 'X (Twitter)', isPublic: false },
   { value: 'facebook', label: 'Facebook', isPublic: false },
-  { value: 'instagram', label: 'Instagram', isPublic: false },
-  { value: 'linkedin', label: 'LinkedIn', isPublic: false },
   { value: 'telegram', label: 'Telegram', isPublic: false },
+  { value: 'linkedin', label: 'LinkedIn', isPublic: false },
   { value: 'signal', label: 'Signal', isPublic: false },
+  { value: 'github', label: 'GitHub', isPublic: true },
+  { value: 'bluesky', label: 'Bluesky', isPublic: true },
+  { value: 'farcaster', label: 'Farcaster', isPublic: true },
+  { value: 'nostr', label: 'Nostr', isPublic: true },
+  { value: 'bitchat', label: 'BitChat', isPublic: true },
 ];
 
 const containerStyle = { padding: '76px 24px 100px' };
@@ -42,7 +42,7 @@ export default function SocialAccounts() {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ platform: 'farcaster', handle: '', isPublic: false });
+  const [form, setForm] = useState({ platform: 'instagram', handle: '', isPublic: false });
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
 
@@ -69,7 +69,7 @@ export default function SocialAccounts() {
     setAdding(true);
     try {
       await api.post('/api/social-accounts', form);
-      setForm({ platform: 'farcaster', handle: '', isPublic: false });
+      setForm({ platform: 'instagram', handle: '', isPublic: false });
       setShowAdd(false);
       fetchAccounts();
     } catch (err) {
@@ -82,7 +82,7 @@ export default function SocialAccounts() {
   const handleDelete = async (id) => {
     if (!window.confirm('Remove this social account?')) return;
     try {
-      await api.delete(`/api/social-accounts/${id}`);
+      await api.patch(`/api/social-accounts/${id}/remove`);
       fetchAccounts();
     } catch (err) {
       alert(err.response?.data?.message || 'Delete failed.');

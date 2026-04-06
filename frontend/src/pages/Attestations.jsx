@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import AttestationCard from '../components/AttestationCard';
 import api from '../services/api';
 
@@ -26,16 +27,18 @@ const inputStyle = {
 };
 
 export default function Attestations() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState('received');
   const [attestations, setAttestations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ subjectUserId: '', attestationType: '' });
+  const [form, setForm] = useState({ platform: '', handle: '', attestationType: '' });
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
 
   const currentUser = JSON.parse(localStorage.getItem('primid_user') || '{}');
   const currentUserId = currentUser.id;
+  const currentTier = currentUser.currentTier ?? null;
 
   const fetchAttestations = () => {
     setLoading(true);
@@ -76,7 +79,7 @@ export default function Attestations() {
     setCreating(true);
     try {
       await api.post('/api/attestations', form);
-      setForm({ subjectUserId: '', attestationType: '' });
+      setForm({ platform: '', handle: '', attestationType: '' });
       setShowCreate(false);
       fetchAttestations();
     } catch (err) {
@@ -85,6 +88,30 @@ export default function Attestations() {
       setCreating(false);
     }
   };
+
+  if (currentTier === null || currentTier >= 3) {
+    return (
+      <div style={containerStyle}>
+        <h1 style={{ fontSize: '22px', fontWeight: 700, marginBottom: '24px' }}>Attestations</h1>
+        <div style={{ padding: '20px', background: '#eaf4fb', borderRadius: '10px', borderLeft: '4px solid #457b9d' }}>
+          <p style={{ fontSize: '15px', fontWeight: 600, marginBottom: '8px' }}>Verify with Google or Apple to unlock attestations</p>
+          <p style={{ fontSize: '13px', color: '#555', marginBottom: '16px' }}>
+            Attestations require Tier 2. Connect Google or Apple to extend your session to 90 days and enable this feature.
+          </p>
+          <button
+            onClick={() => navigate('/verify/oauth')}
+            style={{
+              width: '100%', padding: '12px', fontSize: '14px', fontWeight: 600,
+              background: '#1a1a2e', color: '#fff', border: 'none',
+              borderRadius: '8px', cursor: 'pointer',
+            }}
+          >
+            Connect Google or Apple
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={containerStyle}>
@@ -105,16 +132,42 @@ export default function Attestations() {
       {showCreate && (
         <form onSubmit={handleCreate} style={{ marginBottom: '24px', padding: '16px', background: '#f8f9fa', borderRadius: '10px' }}>
           <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>New Attestation</h2>
+          <select
+            style={{ ...inputStyle, color: form.platform ? '#000' : '#999', background: '#fff' }}
+            value={form.platform}
+            onChange={(e) => setForm({ ...form, platform: e.target.value })}
+            required
+          >
+            <option value="" disabled>Select platform</option>
+            <optgroup label="Centralized">
+              <option value="instagram">Instagram</option>
+              <option value="x">X (Twitter)</option>
+              <option value="facebook">Facebook</option>
+              <option value="telegram">Telegram</option>
+              <option value="linkedin">LinkedIn</option>
+              <option value="signal">Signal</option>
+            </optgroup>
+            <optgroup label="Public / verifiable">
+              <option value="github">GitHub</option>
+              <option value="bluesky">Bluesky</option>
+              <option value="farcaster">Farcaster</option>
+              <option value="nostr">Nostr</option>
+              <option value="bitchat">BitChat</option>
+            </optgroup>
+          </select>
           <input
             style={inputStyle}
-            placeholder="Subject User ID (UUID)"
-            value={form.subjectUserId}
-            onChange={(e) => setForm({ ...form, subjectUserId: e.target.value })}
+            placeholder="Username / handle"
+            value={form.handle}
+            onChange={(e) => setForm({ ...form, handle: e.target.value.trim() })}
+            autoCapitalize="none"
+            autoCorrect="off"
             required
           />
           <input
             style={inputStyle}
-            placeholder="Attestation type (e.g. vouches_for)"
+            placeholder="Note (max 50 characters)"
+            maxLength={50}
             value={form.attestationType}
             onChange={(e) => setForm({ ...form, attestationType: e.target.value })}
             required

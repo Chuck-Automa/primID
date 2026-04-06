@@ -29,7 +29,7 @@ export default function AttestationCard({ attestation, currentUserId, onConsent,
     <div style={cardStyle}>
       <span style={badgeStyle(isRevoked)}>{isRevoked ? 'Revoked' : isPublic ? 'Active' : 'Pending Consent'}</span>
       <p style={{ fontSize: '14px', marginBottom: '4px' }}>
-        <strong>Type:</strong> {attestation.attestationType}
+        <strong>Note:</strong> {attestation.attestationType}
       </p>
       <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
         <strong>Issuer:</strong> {attestation.issuerId}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../services/api';
+import COUNTRIES, { flagEmoji } from '../data/countries';
 
 const inputStyle = {
   width: '100%',
@@ -8,7 +9,7 @@ const inputStyle = {
   border: '1.5px solid #ddd',
   borderRadius: '8px',
   outline: 'none',
-  marginBottom: '12px',
+  boxSizing: 'border-box',
 };
 
 const btnStyle = {
@@ -23,21 +24,37 @@ const btnStyle = {
   cursor: 'pointer',
 };
 
+const PINNED = ['US', 'CA'];
+const pinnedCountries  = COUNTRIES.filter((c) => PINNED.includes(c.code));
+const restCountries    = COUNTRIES.filter((c) => !PINNED.includes(c.code));
+
+/** Builds a full international number from a dial code and local digits. */
+function buildE164(dialCode, localDigits) {
+  // Strip non-digits, then remove a single leading zero (trunk prefix).
+  const digits = localDigits.replace(/\D/g, '').replace(/^0/, '');
+  return `+${dialCode}${digits}`;
+}
+
 export default function OTPForm({ onSuccess }) {
-  const [step, setStep] = useState('phone'); // 'phone' | 'otp'
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [devCode, setDevCode] = useState('');
+  const [step, setStep]             = useState('phone'); // 'phone' | 'otp'
+  const [countryCode, setCountryCode] = useState('US');
+  const [localPhone, setLocalPhone] = useState('');
+  const [fullPhone, setFullPhone]   = useState(''); // E.164, set when OTP sent
+  const [code, setCode]             = useState('');
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [devCode, setDevCode]       = useState('');
+
+  const selectedCountry = COUNTRIES.find((c) => c.code === countryCode) || COUNTRIES[0];
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const resp = await api.post('/api/verify/phone/initiate', { phoneNumber: phone });
-      // Dev mode: backend may return the code in the response (when Twilio not configured)
+      const phoneNumber = buildE164(selectedCountry.dial, localPhone);
+      setFullPhone(phoneNumber);
+      const resp = await api.post('/api/verify/phone/initiate', { phoneNumber });
       if (resp.data.devCode) setDevCode(resp.data.devCode);
       setStep('otp');
     } catch (err) {
@@ -52,7 +69,7 @@ export default function OTPForm({ onSuccess }) {
     setError('');
     setLoading(true);
     try {
-      const resp = await api.post('/api/verify/phone/confirm', { phoneNumber: phone, code });
+      const resp = await api.post('/api/verify/phone/confirm', { phoneNumber: fullPhone, code });
       localStorage.setItem('primid_token', resp.data.token);
       localStorage.setItem('primid_user', JSON.stringify(resp.data.user));
       onSuccess(resp.data.user);
@@ -66,14 +83,43 @@ export default function OTPForm({ onSuccess }) {
   if (step === 'phone') {
     return (
       <form onSubmit={handleSendOtp}>
-        <input
-          style={inputStyle}
-          type="tel"
-          placeholder="Phone number (e.g. +15555555555)"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          required
-        />
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <select
+            value={countryCode}
+            onChange={(e) => setCountryCode(e.target.value)}
+            style={{
+              padding: '14px 10px',
+              fontSize: '15px',
+              border: '1.5px solid #ddd',
+              borderRadius: '8px',
+              outline: 'none',
+              background: '#fff',
+              flexShrink: 0,
+              width: '140px',
+            }}
+          >
+            {pinnedCountries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {flagEmoji(c.code)} {c.name} (+{c.dial})
+              </option>
+            ))}
+            <option disabled>──────────────</option>
+            {restCountries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {flagEmoji(c.code)} {c.name} (+{c.dial})
+              </option>
+            ))}
+          </select>
+          <input
+            style={{ ...inputStyle, flex: 1, marginBottom: 0 }}
+            type="tel"
+            placeholder="Phone number"
+            value={localPhone}
+            onChange={(e) => setLocalPhone(e.target.value)}
+            autoComplete="tel-national"
+            required
+          />
+        </div>
         {error && <p style={{ color: '#c0392b', marginBottom: '12px', fontSize: '14px' }}>{error}</p>}
         <button style={btnStyle} type="submit" disabled={loading}>
           {loading ? 'Sending…' : 'Send verification code'}
@@ -85,11 +131,11 @@ export default function OTPForm({ onSuccess }) {
   return (
     <form onSubmit={handleConfirmOtp}>
       <p style={{ marginBottom: '12px', fontSize: '14px', color: '#666' }}>
-        Code sent to {phone}.{' '}
+        Code sent to {fullPhone}.{' '}
         <button
           type="button"
           style={{ background: 'none', border: 'none', color: '#457b9d', cursor: 'pointer', fontSize: '14px' }}
-          onClick={() => setStep('phone')}
+          onClick={() => { setStep('phone'); setError(''); setDevCode(''); }}
         >
           Change
         </button>

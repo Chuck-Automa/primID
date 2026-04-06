@@ -15,14 +15,56 @@ function hashOtp(code) {
 }
 
 /**
+ * Returns staging config if NODE_ENV === 'staging' and whitelist is configured.
+ * Returns null in dev/prod (no whitelist restriction).
+ */
+function getStagingConfig() {
+  if (process.env.NODE_ENV !== 'staging') return null;
+  const whitelist = (process.env.STAGING_OTP_WHITELIST || '')
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const fixedCode = process.env.STAGING_OTP_FIXED_CODE || '123456';
+  return { whitelist, fixedCode };
+}
+
+/**
+ * Returns true if the phone number is allowed to receive an OTP.
+ * In staging: only whitelisted E.164 numbers are allowed.
+ * In dev/prod: always returns true (no restriction).
+ */
+function isOnStagingWhitelist(phoneNumber) {
+  const config = getStagingConfig();
+  if (!config) return true;
+  return config.whitelist.includes(phoneNumber);
+}
+
+/**
  * Store OTP hash for a phone number (overwrites any existing OTP).
- * In dev (no Twilio creds), logs the code to console and returns it.
- * In prod, sends via Twilio and returns null.
+ *
+ * Staging mode: ignores the passed `code` and uses STAGING_OTP_FIXED_CODE instead.
+ *   The fixed code is communicated to reviewers out-of-band — never returned in the response.
+ *
+ * Dev mode (no Twilio creds): logs the code to console and returns it in the response.
+ *
+ * Prod mode (Twilio configured): sends via Twilio and returns null.
  */
 async function sendOtp(phoneNumber, code) {
-  const hash = hashOtp(code);
-  const expiry = Date.now() + OTP_TTL_MS;
-  otpStore.set(phoneNumber, { hash, expiry });
+  const stagingConfig = getStagingConfig();
+
+  // In staging, the fixed OTP overrides whatever was generated.
+  const resolvedCode = stagingConfig ? stagingConfig.fixedCode : code;
+
+  otpStore.set(phoneNumber, {
+    hash:   hashOtp(resolvedCode),
+    expiry: Date.now() + OTP_TTL_MS,
+  });
+
+  if (stagingConfig) {
+    // Fixed code communicated out-of-band — never expose in response, never call Twilio.
+    console.log(`[STAGING OTP] Phone: ${phoneNumber} → fixed code applied`);
+    return null;
+  }
 
   const hasTwilioCreds =
     process.env.TWILIO_ACCOUNT_SID &&
@@ -33,16 +75,16 @@ async function sendOtp(phoneNumber, code) {
     const twilio = require('twilio');
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     await client.messages.create({
-      body: `Your primID verification code is: ${code}`,
+      body: `Your primID verification code is: ${resolvedCode}`,
       from: process.env.TWILIO_PHONE_NUMBER,
-      to: phoneNumber,
+      to:   phoneNumber,
     });
     return null;
   }
 
-  // Dev stub: log to console
-  console.log(`[DEV OTP] Phone: ${phoneNumber} → Code: ${code}`);
-  return code;
+  // Dev stub: log to console and return code for display in UI
+  console.log(`[DEV OTP] Phone: ${phoneNumber} → Code: ${resolvedCode}`);
+  return resolvedCode;
 }
 
 /**
@@ -61,4 +103,4 @@ function validateOtp(phoneNumber, code) {
   return valid;
 }
 
-module.exports = { generateOtp, sendOtp, validateOtp };
+module.exports = { generateOtp, sendOtp, validateOtp, isOnStagingWhitelist };

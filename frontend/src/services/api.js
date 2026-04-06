@@ -21,7 +21,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('primid_token');
       localStorage.removeItem('primid_user');
-      window.location.href = '/';
+      window.location.href = '/login';
     }
     return Promise.reject(error);
   }

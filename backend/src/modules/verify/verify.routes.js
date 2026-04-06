@@ -23,10 +23,10 @@ const otpLimiter = rateLimit({
   keyGenerator: (req) => req.body.phoneNumber || req.ip,
 });
 
-// Phone OTP
+// Phone OTP — pre-check that phoneNumber starts with '+'; full validation in normalizePhone().
 router.post(
   '/phone/initiate',
-  [body('phoneNumber').isMobilePhone().withMessage('Valid phone number required')],
+  [body('phoneNumber').matches(/^\+/).withMessage('Please enter a valid phone number.')],
   validateRequest,
   initiatePhone
 );
@@ -35,7 +35,7 @@ router.post(
   '/phone/confirm',
   otpLimiter,
   [
-    body('phoneNumber').isMobilePhone().withMessage('Valid phone number required'),
+    body('phoneNumber').matches(/^\+/).withMessage('Please enter a valid phone number.'),
     body('code').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
   ],
   validateRequest,

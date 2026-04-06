@@ -9,7 +9,7 @@ const VALID_PLATFORMS = [
 const listSocialAccounts = async (req, res, next) => {
   try {
     const accounts = await prisma.socialAccount.findMany({
-      where: { userId: req.userId },
+      where:   { userId: req.userId, removedAt: null },
       orderBy: { createdAt: 'desc' },
     });
     return res.status(200).json({ success: true, accounts });
@@ -19,6 +19,8 @@ const listSocialAccounts = async (req, res, next) => {
 };
 
 // POST /api/social-accounts
+// On duplicate (platform, handle) across users: set conflict_flagged = true on
+// all affected rows and insert a social_handle_conflicts record. Never reject.
 const addSocialAccount = async (req, res, next) => {
   try {
     const { platform, handle, isPublic } = req.body;
@@ -27,21 +29,69 @@ const addSocialAccount = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'platform and handle are required.' });
     }
 
-    if (!VALID_PLATFORMS.includes(platform.toLowerCase())) {
+    const normalizedPlatform = platform.toLowerCase();
+    if (!VALID_PLATFORMS.includes(normalizedPlatform)) {
       return res.status(400).json({
         success: false,
         message: `Invalid platform. Supported: ${VALID_PLATFORMS.join(', ')}`,
       });
     }
 
+    // Create the new account first.
     const account = await prisma.socialAccount.create({
       data: {
-        userId: req.userId,
-        platform: platform.toLowerCase(),
+        userId:   req.userId,
+        platform: normalizedPlatform,
         handle,
         isPublic: !!isPublic,
       },
     });
+
+    // Find any OTHER active accounts with the same (platform, handle).
+    const conflicts = await prisma.socialAccount.findMany({
+      where: {
+        platform:  normalizedPlatform,
+        handle,
+        removedAt: null,
+        id:        { not: account.id },
+      },
+    });
+
+    if (conflicts.length > 0) {
+      // Flag the new account and all conflicting accounts, then insert conflict records.
+      await prisma.$transaction([
+        // Flag the new account.
+        prisma.socialAccount.update({
+          where: { id: account.id },
+          data:  { conflictFlagged: true },
+        }),
+        // Flag all existing conflicting accounts.
+        prisma.socialAccount.updateMany({
+          where: { id: { in: conflicts.map((c) => c.id) } },
+          data:  { conflictFlagged: true },
+        }),
+        // Insert a conflict record for each existing conflicting account.
+        ...conflicts.map((conflictingAccount) =>
+          prisma.socialHandleConflict.create({
+            data: {
+              platform:         normalizedPlatform,
+              handle,
+              socialAccountIdA: conflictingAccount.id,
+              socialAccountIdB: account.id,
+            },
+          })
+        ),
+      ]);
+
+      // Reload the account to reflect the updated conflictFlagged state.
+      const flaggedAccount = await prisma.socialAccount.findUnique({ where: { id: account.id } });
+      return res.status(201).json({
+        success:          true,
+        account:          flaggedAccount,
+        conflictDetected: true,
+        message:          'Account added. A handle conflict was detected and flagged for review.',
+      });
+    }
 
     return res.status(201).json({ success: true, account });
   } catch (err) {
@@ -49,8 +99,9 @@ const addSocialAccount = async (req, res, next) => {
   }
 };
 
-// DELETE /api/social-accounts/:id — hard delete allowed (self-reported only)
-const deleteSocialAccount = async (req, res, next) => {
+// PATCH /api/social-accounts/:id/remove
+// Soft-remove: sets removed_at timestamp. Record is never hard-deleted.
+const removeSocialAccount = async (req, res, next) => {
   try {
     const account = await prisma.socialAccount.findUnique({
       where: { id: req.params.id },
@@ -64,12 +115,19 @@ const deleteSocialAccount = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Not authorized.' });
     }
 
-    await prisma.socialAccount.delete({ where: { id: req.params.id } });
+    if (account.removedAt) {
+      return res.status(400).json({ success: false, message: 'Account already removed.' });
+    }
 
-    return res.status(200).json({ success: true, message: 'Social account removed.' });
+    const updated = await prisma.socialAccount.update({
+      where: { id: req.params.id },
+      data:  { removedAt: new Date() },
+    });
+
+    return res.status(200).json({ success: true, account: updated });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { listSocialAccounts, addSocialAccount, deleteSocialAccount };
+module.exports = { listSocialAccounts, addSocialAccount, removeSocialAccount };

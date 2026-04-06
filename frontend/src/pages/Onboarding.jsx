@@ -50,8 +50,21 @@ export default function Onboarding() {
   const [oauthError, setOauthError] = useState('');
 
   useEffect(() => {
+    // Only redirect if token exists AND is not expired
     const token = localStorage.getItem('primid_token');
-    if (token) navigate('/profile');
+    if (!token) return;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (!payload.exp || payload.exp * 1000 > Date.now()) {
+        navigate('/profile');
+      } else {
+        localStorage.removeItem('primid_token');
+        localStorage.removeItem('primid_user');
+      }
+    } catch {
+      localStorage.removeItem('primid_token');
+      localStorage.removeItem('primid_user');
+    }
   }, [navigate]);
 
   const handleOtpSuccess = () => {

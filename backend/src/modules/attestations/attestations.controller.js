@@ -3,26 +3,46 @@ const prisma = require('../../shared/db/prisma');
 // POST /api/attestations
 const createAttestation = async (req, res, next) => {
   try {
-    const { subjectUserId, attestationType } = req.body;
+    const { subjectUserId, platform, handle, attestationType } = req.body;
 
-    if (!subjectUserId || !attestationType) {
-      return res.status(400).json({
-        success: false,
-        message: 'subjectUserId and attestationType are required.',
+    let resolvedSubjectId = subjectUserId;
+
+    if (platform && handle) {
+      // Resolve subject by social account (platform, handle).
+      const account = await prisma.socialAccount.findFirst({
+        where: { platform, handle, removedAt: null },
       });
+
+      if (!account) {
+        return res.status(404).json({
+          success: false,
+          message: `No primID user found with ${platform} handle "${handle}".`,
+        });
+      }
+
+      if (account.conflictFlagged) {
+        return res.status(409).json({
+          success: false,
+          message: `The ${platform} handle "${handle}" is claimed by multiple users and cannot be used for attestation until the conflict is resolved.`,
+        });
+      }
+
+      resolvedSubjectId = account.userId;
     }
 
-    if (subjectUserId === req.userId) {
+    if (resolvedSubjectId === req.userId) {
       return res.status(400).json({
         success: false,
         message: 'Cannot issue attestation to yourself.',
       });
     }
 
-    // Verify subject exists
-    const subject = await prisma.user.findUnique({ where: { id: subjectUserId } });
-    if (!subject) {
-      return res.status(404).json({ success: false, message: 'Subject user not found.' });
+    // Verify subject exists (direct UUID path — platform path already confirmed via account lookup)
+    if (subjectUserId) {
+      const subject = await prisma.user.findUnique({ where: { id: resolvedSubjectId } });
+      if (!subject) {
+        return res.status(404).json({ success: false, message: 'Subject user not found.' });
+      }
     }
 
     // Farcaster Hub anchor: stubbed per Sprint 1
@@ -31,7 +51,7 @@ const createAttestation = async (req, res, next) => {
     const attestation = await prisma.attestation.create({
       data: {
         issuerId: req.userId,
-        subjectId: subjectUserId,
+        subjectId: resolvedSubjectId,
         attestationType,
         // consentGivenAt, publicAt: null — pending consent
       },

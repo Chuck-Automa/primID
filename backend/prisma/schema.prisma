@@ -9,13 +9,16 @@ datasource db {
 
 model User {
   id                   String    @id @default(uuid())
-  walletAddress        String?   @map("wallet_address")
-  phoneNumber          String?   @unique @map("phone_number")
+  walletAddress        String?   @map("wallet_address")              // ALE-encrypted — Sprint 2
+  phoneNumber          String?   @map("phone_number")                // ALE-encrypted ciphertext — never query directly
+  phoneNumberHmac      String?   @unique @map("phone_number_hmac")  // HMAC lookup key — all phone queries use this
   phoneVerified        Boolean   @default(false) @map("phone_verified")
   phoneVerifiedAt      DateTime? @map("phone_verified_at")
   oauthProvider        String?   @map("oauth_provider")
+  oauthSub             String?   @map("oauth_sub")                  // ALE-encrypted ciphertext — never query directly
+  oauthSubHmac         String?   @unique @map("oauth_sub_hmac")     // HMAC lookup key — all oauth queries use this
   oauthVerifiedAt      DateTime? @map("oauth_verified_at")
-  biometricLastUsedAt  DateTime? @map("biometric_last_used_at")
+  biometricLastUsedAt  DateTime? @map("biometric_last_used_at")     // shelved — reserved for future
   zkPassportVerified   Boolean   @default(false) @map("zk_passport_verified")
   zkPassportVerifiedAt DateTime? @map("zk_passport_verified_at")
   zkEmailVerified      Boolean   @default(false) @map("zk_email_verified")
@@ -25,11 +28,12 @@ model User {
   ecoinmterVerified    Boolean   @default(false) @map("ecoinmter_verified")
   ecoinmterVerifiedAt  DateTime? @map("ecoinmter_verified_at")
   currentTier          Int?      @map("current_tier")
+  displayName          String?   @map("display_name")               // user-set display name; null until explicitly set; max 50 chars
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
 
-  issuedAttestations   Attestation[] @relation("issuer")
-  receivedAttestations Attestation[] @relation("subject")
+  issuedAttestations   Attestation[]   @relation("issuer")
+  receivedAttestations Attestation[]   @relation("subject")
   socialAccounts       SocialAccount[]
 
   @@map("users")
@@ -45,22 +49,44 @@ model Attestation {
   revokedAt       DateTime? @map("revoked_at")
   createdAt       DateTime  @default(now()) @map("created_at")
 
-  issuer  User @relation("issuer", fields: [issuerId], references: [id])
+  issuer  User @relation("issuer",  fields: [issuerId],  references: [id])
   subject User @relation("subject", fields: [subjectId], references: [id])
 
   @@map("attestations")
 }
 
 model SocialAccount {
-  id         String    @id @default(uuid())
-  userId     String    @map("user_id")
-  platform   String
-  handle     String
-  isPublic   Boolean   @default(false) @map("is_public")
-  attestedAt DateTime? @map("attested_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  platform        String
+  handle          String
+  isPublic        Boolean   @default(false) @map("is_public")
+  conflictFlagged Boolean   @default(false) @map("conflict_flagged")
+  attestedAt      DateTime? @map("attested_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  removedAt       DateTime? @map("removed_at")                // null = active; non-null = soft-removed
 
   user User @relation(fields: [userId], references: [id])
 
+  conflictsAsA SocialHandleConflict[] @relation("conflict_a")
+  conflictsAsB SocialHandleConflict[] @relation("conflict_b")
+
   @@map("social_accounts")
 }
+
+model SocialHandleConflict {
+  id               String    @id @default(uuid())
+  platform         String
+  handle           String
+  socialAccountIdA String    @map("social_account_id_a")
+  socialAccountIdB String    @map("social_account_id_b")
+  detectedAt       DateTime  @default(now()) @map("detected_at")
+  resolvedAt       DateTime? @map("resolved_at")
+  resolutionNote   String?   @map("resolution_note")
+
+  socialAccountA SocialAccount @relation("conflict_a", fields: [socialAccountIdA], references: [id])
+  socialAccountB SocialAccount @relation("conflict_b", fields: [socialAccountIdB], references: [id])
+
+  @@map("social_handle_conflicts")
+}
+

@@ -9,6 +9,7 @@ const getMe = async (req, res, next) => {
       success: true,
       user: {
         id: user.id,
+        displayName: user.displayName,
         phoneVerified: user.phoneVerified,
         phoneVerifiedAt: user.phoneVerifiedAt,
         oauthProvider: user.oauthProvider,
@@ -33,13 +34,9 @@ const getMe = async (req, res, next) => {
   }
 };
 
-// PATCH /api/user/me — profile updates only, no tier/verification fields
+// PATCH /api/user/me — profile updates only; allowed: displayName
 const updateMe = async (req, res, next) => {
   try {
-    // Whitelist: only allow safe profile fields
-    // In Sprint 1, no profile fields exist beyond what's verified.
-    // We'll accept no-op updates and return the current user.
-    // Reject any attempt to modify tier or verification fields.
     const forbidden = [
       'currentTier', 'phoneVerified', 'phoneVerifiedAt',
       'oauthProvider', 'oauthVerifiedAt', 'biometricLastUsedAt',
@@ -56,14 +53,35 @@ const updateMe = async (req, res, next) => {
       });
     }
 
-    // No non-restricted profile fields defined in Sprint 1 schema.
-    // Return current user unchanged.
-    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId } });
+    const updates = {};
+
+    if ('displayName' in req.body) {
+      const raw = req.body.displayName;
+      if (raw === null || raw === undefined) {
+        updates.displayName = null;
+      } else if (typeof raw !== 'string') {
+        return res.status(400).json({ success: false, message: 'displayName must be a string or null.' });
+      } else {
+        const trimmed = raw.trim();
+        if (trimmed.length === 0) {
+          updates.displayName = null;
+        } else if (trimmed.length > 50) {
+          return res.status(400).json({ success: false, message: 'displayName must be 50 characters or fewer.' });
+        } else {
+          updates.displayName = trimmed;
+        }
+      }
+    }
+
+    const user = Object.keys(updates).length > 0
+      ? await prisma.user.update({ where: { id: req.userId }, data: updates })
+      : await prisma.user.findUniqueOrThrow({ where: { id: req.userId } });
 
     return res.status(200).json({
       success: true,
       user: {
         id: user.id,
+        displayName: user.displayName,
         currentTier: user.currentTier,
         updatedAt: user.updatedAt,
       },

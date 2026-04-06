@@ -31,6 +31,10 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState('');
 
   useEffect(() => {
     api.get('/api/user/me')
@@ -42,11 +46,58 @@ export default function Profile() {
   const handleLogout = () => {
     localStorage.removeItem('primid_token');
     localStorage.removeItem('primid_user');
-    navigate('/');
+    navigate('/login');
+  };
+
+  const startEditName = () => {
+    setNameInput(user.displayName || '');
+    setNameError('');
+    setEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setEditingName(false);
+    setNameError('');
+  };
+
+  const saveDisplayName = async () => {
+    setNameSaving(true);
+    setNameError('');
+    try {
+      const trimmed = nameInput.trim();
+      if (trimmed.length > 50) {
+        setNameError('Must be 50 characters or fewer.');
+        setNameSaving(false);
+        return;
+      }
+      const r = await api.patch('/api/user/me', { displayName: trimmed || null });
+      setUser((u) => ({ ...u, displayName: r.data.user.displayName }));
+      setEditingName(false);
+    } catch {
+      setNameError('Failed to save. Try again.');
+    } finally {
+      setNameSaving(false);
+    }
   };
 
   if (loading) return <div style={{ padding: '40px 24px' }}>Loading…</div>;
-  if (error) return <div style={{ padding: '40px 24px', color: '#c0392b' }}>{error}</div>;
+  if (error) return (
+    <div style={{ padding: '76px 24px 40px' }}>
+      <p style={{ color: '#c0392b', marginBottom: '20px', fontSize: '14px' }}>{error}</p>
+      <button
+        onClick={() => window.location.reload()}
+        style={{ width: '100%', padding: '12px', marginBottom: '10px', fontSize: '14px', fontWeight: 600, background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+      >
+        Try again
+      </button>
+      <button
+        onClick={handleLogout}
+        style={{ width: '100%', padding: '12px', fontSize: '14px', fontWeight: 600, background: 'none', color: '#888', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' }}
+      >
+        Log out
+      </button>
+    </div>
+  );
   if (!user) return null;
 
   const tierNames = { 0: 'Full Personhood', 1: 'Single CVA', 2: 'OAuth Verified', 3: 'Phone Verified', null: 'Ghost' };
@@ -61,6 +112,56 @@ export default function Profile() {
         >
           Log out
         </button>
+      </div>
+
+      {/* Display name — tap pencil to edit */}
+      <div style={{ marginBottom: '24px' }}>
+        {editingName ? (
+          <div>
+            <input
+              autoFocus
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              maxLength={50}
+              placeholder="Your display name"
+              style={{
+                width: '100%', boxSizing: 'border-box', padding: '10px 12px',
+                fontSize: '16px', fontWeight: 500, border: '1px solid #457b9d',
+                borderRadius: '8px', outline: 'none',
+              }}
+              onKeyDown={(e) => { if (e.key === 'Enter') saveDisplayName(); if (e.key === 'Escape') cancelEditName(); }}
+            />
+            {nameError && <p style={{ fontSize: '12px', color: '#c0392b', marginTop: '4px' }}>{nameError}</p>}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button
+                onClick={saveDisplayName}
+                disabled={nameSaving}
+                style={{ flex: 1, padding: '9px', fontSize: '13px', fontWeight: 600, background: '#1a1a2e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                {nameSaving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={cancelEditName}
+                style={{ flex: 1, padding: '9px', fontSize: '13px', fontWeight: 600, background: 'none', color: '#888', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px', fontWeight: 600, color: user.displayName ? '#1a1a2e' : '#bbb' }}>
+              {user.displayName || 'Add a display name'}
+            </span>
+            <button
+              onClick={startEditName}
+              aria-label="Edit display name"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', fontSize: '15px', color: '#888', lineHeight: 1 }}
+            >
+              ✏
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: '28px' }}>
