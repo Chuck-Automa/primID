@@ -35,20 +35,25 @@ export default function Attestations() {
   const [form, setForm] = useState({ platform: '', handle: '', attestationType: '' });
   const [createError, setCreateError] = useState('');
   const [creating, setCreating] = useState(false);
-
-  const currentUser = JSON.parse(localStorage.getItem('primid_user') || '{}');
-  const currentUserId = currentUser.id;
-  const currentTier = currentUser.currentTier ?? null;
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentTier, setCurrentTier] = useState(undefined); // undefined = not yet loaded
 
   const fetchAttestations = () => {
-    setLoading(true);
     api.get('/api/attestations')
       .then((r) => setAttestations(r.data.attestations))
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchAttestations(); }, []);
+  useEffect(() => {
+    api.get('/api/user/me')
+      .then((r) => {
+        setCurrentUserId(r.data.user.id);
+        setCurrentTier(r.data.user.currentTier ?? null);
+      })
+      .catch(() => setCurrentTier(null));
+    fetchAttestations();
+  }, []);
 
   const received = attestations.filter((a) => a.subjectId === currentUserId);
   const issued = attestations.filter((a) => a.issuerId === currentUserId);
@@ -88,6 +93,8 @@ export default function Attestations() {
       setCreating(false);
     }
   };
+
+  if (currentTier === undefined) return <div style={{ padding: '76px 24px' }}>Loading…</div>;
 
   if (currentTier === null || currentTier >= 3) {
     return (

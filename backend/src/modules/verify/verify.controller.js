@@ -99,7 +99,7 @@ const confirmPhone = async (req, res, next) => {
       success: true,
       message: 'Phone verified.',
       token,
-      user: { id: user.id, tier: user.currentTier },
+      user: { id: user.id, currentTier: user.currentTier },
     });
   } catch (err) {
     next(err);
@@ -209,7 +209,7 @@ const verifyOAuth = async (req, res, next) => {
       success: true,
       message: `${provider} OAuth verified.`,
       token: jwtToken,
-      user: { id: user.id, tier: user.currentTier },
+      user: { id: user.id, currentTier: user.currentTier },
     });
   } catch (err) {
     next(err);
