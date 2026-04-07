@@ -60,6 +60,11 @@ function RequireAuth({ children }) {
   return children;
 }
 
+function RequireGuest({ children }) {
+  if (getValidToken()) return <Navigate to="/profile" replace />;
+  return children;
+}
+
 const appStyle = {
   maxWidth: '480px',
   margin: '0 auto',
@@ -76,7 +81,7 @@ export default function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Onboarding />} />
+          <Route path="/login" element={<RequireGuest><Onboarding /></RequireGuest>} />
           <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
           <Route path="/attestations" element={<RequireAuth><Attestations /></RequireAuth>} />
           <Route path="/social" element={<RequireAuth><SocialAccounts /></RequireAuth>} />
