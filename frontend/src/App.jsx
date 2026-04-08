@@ -30,6 +30,8 @@ import Profile from './pages/Profile';
 import Attestations from './pages/Attestations';
 import SocialAccounts from './pages/SocialAccounts';
 import OAuthVerify from './pages/OAuthVerify';
+import Lookup from './pages/Lookup';
+import LookupResult from './pages/LookupResult';
 import Navbar from './components/Navbar';
 
 /**
@@ -86,6 +88,8 @@ export default function App() {
           <Route path="/attestations" element={<RequireAuth><Attestations /></RequireAuth>} />
           <Route path="/social" element={<RequireAuth><SocialAccounts /></RequireAuth>} />
           <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
+          <Route path="/lookup" element={<Lookup />} />
+          <Route path="/lookup/:platform/:handle" element={<LookupResult />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>

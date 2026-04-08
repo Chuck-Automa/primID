@@ -8,6 +8,7 @@ const verifyRoutes = require('./modules/verify/verify.routes');
 const userRoutes = require('./modules/user/user.routes');
 const attestationsRoutes = require('./modules/attestations/attestations.routes');
 const socialRoutes = require('./modules/social/social.routes');
+const publicRoutes = require('./modules/public/public.routes');
 const { errorHandler } = require('./shared/middleware/errorHandler');
 const { attachSafeBody } = require('./shared/middleware/loggerScrub');
 
@@ -56,6 +57,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.use('/api/public', publicRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/verify', verifyRoutes);
 app.use('/api/user', userRoutes);
