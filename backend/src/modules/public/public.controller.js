@@ -92,4 +92,38 @@ const lookupHandle = async (req, res, next) => {
   }
 };
 
-module.exports = { lookupHandle };
+// GET /api/public/suggestions/:platform?q=prefix
+const suggestHandles = async (req, res, next) => {
+  try {
+    const { platform } = req.params;
+    const q = (req.query.q || '').trim();
+
+    if (!VALID_PLATFORMS.includes(platform)) {
+      return res.status(400).json({ success: false, message: `Unknown platform: ${platform}` });
+    }
+
+    if (q.length < 2) {
+      return res.status(200).json({ success: true, suggestions: [] });
+    }
+
+    const accounts = await prisma.socialAccount.findMany({
+      where: {
+        platform,
+        handle: { startsWith: q, mode: 'insensitive' },
+        removedAt: null,
+      },
+      select: { handle: true },
+      orderBy: { handle: 'asc' },
+      take: 8,
+    });
+
+    return res.status(200).json({
+      success: true,
+      suggestions: accounts.map((a) => a.handle),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { lookupHandle, suggestHandles };
