@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import TierBadge from '../components/TierBadge';
 import api from '../services/api';
+import { PLATFORMS } from '../data/platforms';
 
 const containerStyle = {
   padding: '76px 24px 100px',
@@ -35,12 +36,16 @@ export default function Profile() {
   const [nameInput, setNameInput] = useState('');
   const [nameSaving, setNameSaving] = useState(false);
   const [nameError, setNameError] = useState('');
+  const [socialAccounts, setSocialAccounts] = useState([]);
 
   useEffect(() => {
     api.get('/api/user/me')
       .then((r) => setUser(r.data.user))
       .catch(() => setError('Failed to load profile.'))
       .finally(() => setLoading(false));
+    api.get('/api/social-accounts')
+      .then((r) => setSocialAccounts(r.data.accounts))
+      .catch(() => {});
   }, []);
 
   const handleLogout = () => {
@@ -287,6 +292,49 @@ export default function Profile() {
           )}
         </div>
       )}
+
+      {/* Social handles */}
+      <div style={{ ...sectionStyle, marginTop: '8px' }}>
+        <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '14px' }}>Social Handles</h2>
+        {socialAccounts.length === 0 ? (
+          <p style={{ fontSize: '13px', color: '#aaa' }}>
+            No social accounts linked —{' '}
+            <span
+              onClick={() => navigate('/social')}
+              style={{ color: '#457b9d', cursor: 'pointer' }}
+            >
+              add them on the Social Accounts page
+            </span>
+          </p>
+        ) : (
+          socialAccounts.map((a) => {
+            const platformLabel = PLATFORMS.find((p) => p.value === a.platform)?.label || a.platform;
+            const canShare = user.currentTier !== null && user.currentTier <= 2;
+            return (
+              <div
+                key={a.id}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #eee' }}
+              >
+                <div>
+                  <p style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>{platformLabel}</p>
+                  <p style={{ fontSize: '12px', color: '#666', margin: '2px 0 0' }}>{a.handle}</p>
+                </div>
+                {canShare && (
+                  <button
+                    onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                    style={{
+                      background: 'none', border: '1px solid #ddd', color: '#457b9d',
+                      fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+                    }}
+                  >
+                    ⬆ Share
+                  </button>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
 
       <div style={{ marginTop: '24px' }}>
         <p style={{ fontSize: '11px', color: '#bbb' }}>User ID: {user.id}</p>

@@ -32,6 +32,7 @@ import SocialAccounts from './pages/SocialAccounts';
 import OAuthVerify from './pages/OAuthVerify';
 import Lookup from './pages/Lookup';
 import LookupResult from './pages/LookupResult';
+import ProfileCard from './pages/ProfileCard';
 import Navbar from './components/Navbar';
 
 /**
@@ -90,6 +91,7 @@ export default function App() {
           <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
           <Route path="/lookup" element={<Lookup />} />
           <Route path="/lookup/:platform/:handle" element={<LookupResult />} />
+          <Route path="/id/:platform/:handle" element={<ProfileCard />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </div>

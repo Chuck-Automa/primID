@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { PLATFORMS } from '../data/platforms';
 
@@ -26,12 +27,22 @@ const accountRowStyle = {
 };
 
 export default function SocialAccounts() {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ platform: 'instagram', handle: '', isPublic: false });
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [currentTier, setCurrentTier] = useState(undefined);
+
+  useEffect(() => {
+    api.get('/api/user/me')
+      .then((r) => setCurrentTier(r.data.user.currentTier ?? null))
+      .catch(() => setCurrentTier(null));
+  }, []);
+
+  const canShare = currentTier !== null && currentTier !== undefined && currentTier <= 2;
 
   const fetchAccounts = () => {
     setLoading(true);
@@ -155,15 +166,28 @@ export default function SocialAccounts() {
                 <p style={{ fontSize: '13px', color: '#666' }}>{a.handle}</p>
                 {a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>}
               </div>
-              <button
-                onClick={() => handleDelete(a.id)}
-                style={{
-                  background: 'none', border: '1px solid #eee', color: '#c0392b',
-                  fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                }}
-              >
-                Remove
-              </button>
+              <div style={{ display: 'flex', gap: '6px' }}>
+                {canShare && (
+                  <button
+                    onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                    style={{
+                      background: 'none', border: '1px solid #ddd', color: '#457b9d',
+                      fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+                    }}
+                  >
+                    ⬆ Share
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDelete(a.id)}
+                  style={{
+                    background: 'none', border: '1px solid #eee', color: '#c0392b',
+                    fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           );
         })
