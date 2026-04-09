@@ -172,7 +172,7 @@ const verifyOAuth = async (req, res, next) => {
           }
           // Dev/staging stub — use the authenticated user's ID (upgrade path) or the raw token
           // (unauthenticated registration path) so each user resolves to their own stub sub.
-          const stubSeed = req.user ? req.user.id : token;
+          const stubSeed = req.userId || token;
           const crypto = require('crypto');
           oauthUserId = `apple-stub-${crypto.createHash('sha256').update(stubSeed).digest('hex').slice(0, 16)}`;
         } else {
@@ -194,17 +194,17 @@ const verifyOAuth = async (req, res, next) => {
 
     let user;
 
-    if (req.user) {
+    if (req.userId) {
       // Authenticated upgrade path (POST /api/verify/oauth from OAuthVerify page).
       // Update the current user's row — never create a new account.
-      if (existingUser && existingUser.id !== req.user.id) {
+      if (existingUser && existingUser.id !== req.userId) {
         return res.status(409).json({
           success: false,
           message: 'This OAuth identity is already linked to another account.',
         });
       }
       user = await prisma.user.update({
-        where: { id: req.user.id },
+        where: { id: req.userId },
         data: {
           oauthSub:        encryptedSub,
           oauthSubHmac:    subHmac,
