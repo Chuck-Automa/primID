@@ -166,7 +166,18 @@ const verifyOAuth = async (req, res, next) => {
       }
     } else if (provider === 'apple') {
       try {
-        oauthUserId = await verifyAppleIdentityToken(token);
+        if (!process.env.APPLE_CLIENT_ID) {
+          if (process.env.NODE_ENV === 'production') {
+            return res.status(503).json({ success: false, message: 'Apple Sign In is not available.' });
+          }
+          // Dev/staging stub — use the authenticated user's ID (upgrade path) or the raw token
+          // (unauthenticated registration path) so each user resolves to their own stub sub.
+          const stubSeed = req.user ? req.user.id : token;
+          const crypto = require('crypto');
+          oauthUserId = `apple-stub-${crypto.createHash('sha256').update(stubSeed).digest('hex').slice(0, 16)}`;
+        } else {
+          oauthUserId = await verifyAppleIdentityToken(token);
+        }
       } catch (err) {
         if (err.statusCode === 503) return res.status(503).json({ success: false, message: err.message });
         return res.status(401).json({ success: false, message: 'Invalid Apple identity token.' });
@@ -181,26 +192,45 @@ const verifyOAuth = async (req, res, next) => {
 
     const existingUser = await prisma.user.findUnique({ where: { oauthSubHmac: subHmac } });
 
-    // _isLoginOnly is set by auth.controller.login to enforce that the account must
-    // already exist. Direct calls to /api/verify/oauth (the "Continue with" buttons)
-    // and /api/auth/register always upsert — new users are created on first sign-in.
-    if (!existingUser && req.body._isLoginOnly) {
-      return res.status(404).json({
-        success: false,
-        message: 'No account found for this OAuth identity. Please sign up first.',
+    let user;
+
+    if (req.user) {
+      // Authenticated upgrade path (POST /api/verify/oauth from OAuthVerify page).
+      // Update the current user's row — never create a new account.
+      if (existingUser && existingUser.id !== req.user.id) {
+        return res.status(409).json({
+          success: false,
+          message: 'This OAuth identity is already linked to another account.',
+        });
+      }
+      user = await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
+          oauthSub:        encryptedSub,
+          oauthSubHmac:    subHmac,
+          oauthProvider:   provider,
+          oauthVerifiedAt: new Date(),
+        },
+      });
+    } else {
+      // Unauthenticated registration/login path (called from auth.controller).
+      if (!existingUser && req.body._isLoginOnly) {
+        return res.status(404).json({
+          success: false,
+          message: 'No account found for this OAuth identity. Please sign up first.',
+        });
+      }
+      user = await prisma.user.upsert({
+        where:  { oauthSubHmac: subHmac },
+        update: { oauthProvider: provider, oauthVerifiedAt: new Date() },
+        create: {
+          oauthSub:        encryptedSub,
+          oauthSubHmac:    subHmac,
+          oauthProvider:   provider,
+          oauthVerifiedAt: new Date(),
+        },
       });
     }
-
-    let user = await prisma.user.upsert({
-      where:  { oauthSubHmac: subHmac },
-      update: { oauthProvider: provider, oauthVerifiedAt: new Date() },
-      create: {
-        oauthSub:        encryptedSub,
-        oauthSubHmac:    subHmac,
-        oauthProvider:   provider,
-        oauthVerifiedAt: new Date(),
-      },
-    });
 
     user = await computeAndSaveTier(user.id);
     const jwtToken = generateToken(user.id, user.currentTier);

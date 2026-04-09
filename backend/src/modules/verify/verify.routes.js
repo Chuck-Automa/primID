@@ -2,6 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const rateLimit = require('express-rate-limit');
 const { validateRequest } = require('../auth/auth.validator');
+const { authenticate } = require('../../shared/middleware/authenticate');
 const {
   initiatePhone,
   confirmPhone,
@@ -42,9 +43,10 @@ router.post(
   confirmPhone
 );
 
-// OAuth
+// OAuth — authenticate required; this is an upgrade path for existing users only
 router.post(
   '/oauth',
+  authenticate,
   [
     body('provider').isIn(['google', 'apple']).withMessage('provider must be "google" or "apple"'),
     body('token').notEmpty().withMessage('token is required'),

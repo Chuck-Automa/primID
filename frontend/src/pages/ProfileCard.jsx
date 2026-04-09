@@ -14,6 +14,17 @@ const TIER_NAMES = {
   null: 'Ghost',
 };
 
+const PLATFORM_URLS = {
+  instagram: 'https://instagram.com/{handle}',
+  x:         'https://x.com/{handle}',
+  facebook:  'https://facebook.com/{handle}',
+  telegram:  'https://t.me/{handle}',
+  linkedin:  'https://linkedin.com/in/{handle}',
+  github:    'https://github.com/{handle}',
+  bluesky:   'https://bsky.app/profile/{handle}',
+  farcaster: 'https://warpcast.com/{handle}',
+};
+
 export default function ProfileCard() {
   const { platform, handle } = useParams();
   const navigate = useNavigate();
@@ -21,8 +32,11 @@ export default function ProfileCard() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [githubProfile, setGithubProfile] = useState(null);
 
   const platformLabel = PLATFORMS.find((p) => p.value === platform)?.label || platform;
+  const profileUrlTemplate = PLATFORM_URLS[platform];
+  const profileUrl = profileUrlTemplate ? profileUrlTemplate.replace('{handle}', encodeURIComponent(handle)) : null;
 
   useEffect(() => {
     api.get(`/api/public/lookup/${encodeURIComponent(platform)}/${encodeURIComponent(handle)}`)
@@ -35,6 +49,17 @@ export default function ProfileCard() {
         }
       })
       .finally(() => setLoading(false));
+  }, [platform, handle]);
+
+  // GitHub profile fetch — client-side, no caching
+  useEffect(() => {
+    if (platform !== 'github') return;
+    fetch(`https://api.github.com/users/${encodeURIComponent(handle)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data && data.avatar_url) setGithubProfile(data);
+      })
+      .catch(() => {});
   }, [platform, handle]);
 
   const handleCopy = () => {
@@ -76,28 +101,70 @@ export default function ProfileCard() {
         </div>
       )}
 
-      {/* Platform + handle */}
-      <p style={{ fontSize: '12px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-        {platformLabel}
-      </p>
-      <h1 style={{ fontSize: '26px', fontWeight: 700, marginBottom: '6px' }}>{handle}</h1>
-
-      {/* Display name */}
-      {user.displayName && (
-        <p style={{ fontSize: '16px', color: '#555', marginBottom: '20px' }}>{user.displayName}</p>
-      )}
-
-      {/* Tier badge */}
+      {/* Tier badge — hero element */}
       <div style={{ marginBottom: '8px' }}>
         <TierBadge tier={user.currentTier} size="large" />
       </div>
-      <p style={{ fontSize: '13px', color: '#888', marginBottom: user.verifiedSince ? '4px' : '24px' }}>
+      <p style={{ fontSize: '14px', color: '#888', marginBottom: user.verifiedSince ? '4px' : '20px' }}>
         Tier {user.currentTier ?? 'Ghost'} — {TIER_NAMES[user.currentTier]}
       </p>
       {user.verifiedSince && (
-        <p style={{ fontSize: '12px', color: '#aaa', marginBottom: '24px' }}>
+        <p style={{ fontSize: '12px', color: '#aaa', marginBottom: '20px' }}>
           Verified since {new Date(user.verifiedSince).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
+      )}
+
+      {/* Display name */}
+      {user.displayName && (
+        <p style={{ fontSize: '18px', fontWeight: 600, color: '#1a1a2e', marginBottom: '24px' }}>{user.displayName}</p>
+      )}
+
+      {/* GitHub profile preview */}
+      {platform === 'github' && githubProfile && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', background: '#f8f9fa', borderRadius: '10px', marginBottom: '12px' }}>
+          <img
+            src={githubProfile.avatar_url}
+            alt={handle}
+            style={{ width: '48px', height: '48px', borderRadius: '50%', flexShrink: 0 }}
+          />
+          <div style={{ minWidth: 0 }}>
+            {githubProfile.name && githubProfile.name !== handle && (
+              <p style={{ fontSize: '14px', fontWeight: 600, margin: 0, color: '#1a1a2e' }}>{githubProfile.name}</p>
+            )}
+            {githubProfile.bio && (
+              <p style={{ fontSize: '13px', color: '#666', margin: githubProfile.name ? '2px 0 0' : 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {githubProfile.bio.length > 120 ? githubProfile.bio.slice(0, 120) + '…' : githubProfile.bio}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Platform link card */}
+      {profileUrl ? (
+        <a
+          href={profileUrl}
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 16px', background: '#f8f9fa', borderRadius: '10px',
+            border: '1px solid #eee', textDecoration: 'none', marginBottom: '24px',
+          }}
+        >
+          <span style={{ fontSize: '13px', color: '#888', fontWeight: 500 }}>{platformLabel}</span>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>@{handle}</span>
+          <span style={{ fontSize: '18px', color: '#457b9d' }}>›</span>
+        </a>
+      ) : (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '14px 16px', background: '#f8f9fa', borderRadius: '10px',
+          border: '1px solid #eee', marginBottom: '24px',
+        }}>
+          <span style={{ fontSize: '13px', color: '#888', fontWeight: 500 }}>{platformLabel}</span>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>@{handle}</span>
+        </div>
       )}
 
       {/* Copy link button */}
@@ -109,7 +176,7 @@ export default function ProfileCard() {
           background: copied ? '#eafaf1' : '#f8f9fa',
           color: copied ? '#2d6a4f' : '#1a1a2e',
           border: `1px solid ${copied ? '#2d6a4f' : '#ddd'}`,
-          borderRadius: '8px', cursor: 'pointer', marginBottom: '24px',
+          borderRadius: '8px', cursor: 'pointer', marginBottom: '20px',
           transition: 'all 0.15s',
         }}
       >
@@ -117,7 +184,7 @@ export default function ProfileCard() {
       </button>
 
       {/* Link to full lookup */}
-      <div>
+      <div style={{ marginBottom: '40px' }}>
         <Link
           to={`/lookup/${encodeURIComponent(platform)}/${encodeURIComponent(handle)}`}
           style={{ fontSize: '13px', color: '#457b9d' }}
@@ -126,7 +193,7 @@ export default function ProfileCard() {
         </Link>
       </div>
 
-      <p style={{ fontSize: '11px', color: '#ccc', marginTop: '40px' }}>
+      <p style={{ fontSize: '11px', color: '#ccc' }}>
         Verified by primID
       </p>
     </div>
