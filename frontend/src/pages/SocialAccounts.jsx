@@ -121,7 +121,7 @@ export default function SocialAccounts() {
             style={inputStyle}
             placeholder="Handle / username"
             value={form.handle}
-            onChange={(e) => setForm({ ...form, handle: e.target.value })}
+            onChange={(e) => setForm({ ...form, handle: e.target.value.trim() })}
             required
           />
 

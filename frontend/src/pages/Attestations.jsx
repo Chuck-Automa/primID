@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AttestationCard from '../components/AttestationCard';
+import { PLATFORMS } from '../data/platforms';
 import api from '../services/api';
 
 const containerStyle = { padding: '76px 24px 100px' };
@@ -147,19 +148,14 @@ export default function Attestations() {
           >
             <option value="" disabled>Select platform</option>
             <optgroup label="Centralized">
-              <option value="instagram">Instagram</option>
-              <option value="x">X (Twitter)</option>
-              <option value="facebook">Facebook</option>
-              <option value="telegram">Telegram</option>
-              <option value="linkedin">LinkedIn</option>
-              <option value="signal">Signal</option>
+              {PLATFORMS.filter((p) => !p.isPublic).map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
             </optgroup>
             <optgroup label="Public / verifiable">
-              <option value="github">GitHub</option>
-              <option value="bluesky">Bluesky</option>
-              <option value="farcaster">Farcaster</option>
-              <option value="nostr">Nostr</option>
-              <option value="bitchat">BitChat</option>
+              {PLATFORMS.filter((p) => p.isPublic).map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
             </optgroup>
           </select>
           <input
