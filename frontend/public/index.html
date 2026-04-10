@@ -13,6 +13,9 @@
         background: #f8f9fa;
         color: #1a1a2e;
       }
+      /* Prevent iOS Safari from auto-zooming on input/select focus.
+         Safari zooms when font-size < 16px; setting 16px globally avoids it. */
+      input, select, textarea { font-size: 16px; }
     </style>
     <script>
       // 1. Suppress cross-origin "Script error." messages (e.g. Brave wallet extension scripts)
