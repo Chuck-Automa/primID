@@ -3,8 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { PLATFORMS } from '../data/platforms';
 
-const containerStyle = { padding: '76px 24px 100px' };
-
 const inputStyle = {
   width: '100%',
   padding: '12px 14px',
@@ -54,7 +52,6 @@ export default function SocialAccounts() {
 
   useEffect(() => { fetchAccounts(); }, []);
 
-  // Auto-set isPublic based on selected platform
   const handlePlatformChange = (e) => {
     const platform = e.target.value;
     const p = PLATFORMS.find((pl) => pl.value === platform);
@@ -88,110 +85,131 @@ export default function SocialAccounts() {
   };
 
   return (
-    <div style={containerStyle}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700 }}>Social Accounts</h1>
-        <button
-          onClick={() => setShowAdd(!showAdd)}
-          style={{
-            padding: '8px 14px', fontSize: '13px', fontWeight: 600,
-            background: '#1a1a2e', color: '#fff', border: 'none',
-            borderRadius: '6px', cursor: 'pointer',
-          }}
-        >
-          {showAdd ? 'Cancel' : '+ Add'}
-        </button>
-      </div>
+    <div style={{
+      height: 'calc(100vh - 36px)',
+      marginTop: '36px',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      padding: '16px',
+      gap: '12px',
+    }}>
 
-      {showAdd && (
-        <form onSubmit={handleAdd} style={{ marginBottom: '24px', padding: '16px', background: '#f8f9fa', borderRadius: '10px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '12px' }}>Add Social Account</h2>
-
-          <select
-            style={{ ...inputStyle, background: '#fff' }}
-            value={form.platform}
-            onChange={handlePlatformChange}
-          >
-            {PLATFORMS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}{p.isPublic ? ' (verifiable)' : ''}</option>
-            ))}
-          </select>
-
-          <input
-            style={inputStyle}
-            placeholder="Handle / username"
-            value={form.handle}
-            onChange={(e) => setForm({ ...form, handle: e.target.value.trim() })}
-            required
-          />
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', marginBottom: '12px' }}>
-            <input
-              type="checkbox"
-              checked={form.isPublic}
-              onChange={(e) => setForm({ ...form, isPublic: e.target.checked })}
-            />
-            Public / verifiable account
-          </label>
-
-          {addError && <p style={{ color: '#c0392b', fontSize: '13px', marginBottom: '10px' }}>{addError}</p>}
-
+      {/* Input card — header + add form */}
+      <div style={{ flexShrink: 0, background: '#f8f9fa', borderRadius: '12px', padding: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 700 }}>Social Accounts</h1>
           <button
-            type="submit"
-            disabled={adding}
+            onClick={() => setShowAdd(!showAdd)}
             style={{
-              width: '100%', padding: '12px', fontSize: '14px', fontWeight: 600,
+              padding: '8px 14px', fontSize: '13px', fontWeight: 600,
               background: '#1a1a2e', color: '#fff', border: 'none',
-              borderRadius: '8px', cursor: 'pointer',
+              borderRadius: '6px', cursor: 'pointer',
             }}
           >
-            {adding ? 'Adding…' : 'Add Account'}
+            {showAdd ? 'Cancel' : '+ Add'}
           </button>
-        </form>
-      )}
+        </div>
 
-      {loading ? (
-        <p style={{ color: '#888', fontSize: '14px' }}>Loading…</p>
-      ) : accounts.length === 0 ? (
-        <p style={{ color: '#aaa', fontSize: '14px', textAlign: 'center', marginTop: '40px' }}>
-          No social accounts linked yet.
-        </p>
-      ) : (
-        accounts.map((a) => {
-          const platformLabel = PLATFORMS.find((p) => p.value === a.platform)?.label || a.platform;
-          return (
-            <div key={a.id} style={accountRowStyle}>
-              <div>
-                <p style={{ fontSize: '14px', fontWeight: 600 }}>{platformLabel}</p>
-                <p style={{ fontSize: '13px', color: '#666' }}>{a.handle}</p>
-                {a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>}
-              </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                {canShare && (
+        {showAdd && (
+          <form onSubmit={handleAdd} style={{ marginTop: '16px' }}>
+            <select
+              style={{ ...inputStyle, background: '#fff' }}
+              value={form.platform}
+              onChange={handlePlatformChange}
+            >
+              {PLATFORMS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}{p.isPublic ? ' (verifiable)' : ''}</option>
+              ))}
+            </select>
+
+            <input
+              style={inputStyle}
+              placeholder="Handle / username"
+              value={form.handle}
+              onChange={(e) => setForm({ ...form, handle: e.target.value.trim() })}
+              required
+            />
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', marginBottom: '12px' }}>
+              <input
+                type="checkbox"
+                checked={form.isPublic}
+                onChange={(e) => setForm({ ...form, isPublic: e.target.checked })}
+              />
+              Public / verifiable account
+            </label>
+
+            {addError && <p style={{ color: '#c0392b', fontSize: '13px', marginBottom: '10px' }}>{addError}</p>}
+
+            <button
+              type="submit"
+              disabled={adding}
+              style={{
+                width: '100%', padding: '12px', fontSize: '14px', fontWeight: 600,
+                background: '#1a1a2e', color: '#fff', border: 'none',
+                borderRadius: '8px', cursor: 'pointer',
+              }}
+            >
+              {adding ? 'Adding…' : 'Add Account'}
+            </button>
+          </form>
+        )}
+      </div>
+
+      {/* List card — independently scrollable */}
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        overflowY: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        background: '#f8f9fa',
+        borderRadius: '12px',
+        padding: '16px',
+      }}>
+        {loading ? (
+          <p style={{ color: '#888', fontSize: '14px' }}>Loading…</p>
+        ) : accounts.length === 0 ? (
+          <p style={{ color: '#aaa', fontSize: '14px', textAlign: 'center', marginTop: '24px' }}>
+            No social accounts linked yet.
+          </p>
+        ) : (
+          accounts.map((a) => {
+            const platformLabel = PLATFORMS.find((p) => p.value === a.platform)?.label || a.platform;
+            return (
+              <div key={a.id} style={accountRowStyle}>
+                <div>
+                  <p style={{ fontSize: '14px', fontWeight: 600 }}>{platformLabel}</p>
+                  <p style={{ fontSize: '13px', color: '#666' }}>{a.handle}</p>
+                  {a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>}
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  {canShare && (
+                    <button
+                      onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                      style={{
+                        background: 'none', border: '1px solid #ddd', color: '#457b9d',
+                        fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+                      }}
+                    >
+                      ⬆ Share
+                    </button>
+                  )}
                   <button
-                    onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                    onClick={() => handleDelete(a.id)}
                     style={{
-                      background: 'none', border: '1px solid #ddd', color: '#457b9d',
+                      background: 'none', border: '1px solid #eee', color: '#c0392b',
                       fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
                     }}
                   >
-                    ⬆ Share
+                    Remove
                   </button>
-                )}
-                <button
-                  onClick={() => handleDelete(a.id)}
-                  style={{
-                    background: 'none', border: '1px solid #eee', color: '#c0392b',
-                    fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                  }}
-                >
-                  Remove
-                </button>
+                </div>
               </div>
-            </div>
-          );
-        })
-      )}
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
