@@ -126,4 +126,51 @@ const suggestHandles = async (req, res, next) => {
   }
 };
 
-module.exports = { lookupHandle, suggestHandles };
+// GET /api/public/attestations/:platform/:handle
+const listPublicAttestations = async (req, res, next) => {
+  try {
+    const { platform, handle } = req.params;
+
+    if (!VALID_PLATFORMS.includes(platform)) {
+      return res.status(400).json({ success: false, message: `Unknown platform: ${platform}` });
+    }
+
+    const account = await prisma.socialAccount.findFirst({
+      where: { platform, handle, removedAt: null },
+    });
+
+    if (!account) {
+      return res.status(404).json({ success: false, message: 'Handle not found.' });
+    }
+
+    const attestations = await prisma.attestation.findMany({
+      where: {
+        subjectId: account.userId,
+        publicAt:  { not: null },
+        revokedAt: null,
+      },
+      orderBy: { publicAt: 'desc' },
+      include: {
+        issuer: {
+          select: { currentTier: true, displayName: true },
+        },
+      },
+    });
+
+    const safe = attestations.map((a) => ({
+      id:              a.id,
+      attestationType: a.attestationType,
+      publicAt:        a.publicAt,
+      issuer: {
+        currentTier: a.issuer.currentTier,
+        displayName: a.issuer.displayName,
+      },
+    }));
+
+    return res.status(200).json({ success: true, attestations: safe });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { lookupHandle, suggestHandles, listPublicAttestations };

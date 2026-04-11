@@ -33,6 +33,8 @@ export default function ProfileCard() {
   const [notFound, setNotFound] = useState(false);
   const [copied, setCopied] = useState(false);
   const [githubProfile, setGithubProfile] = useState(null);
+  const [attestationsOpen, setAttestationsOpen] = useState(false);
+  const [attestations, setAttestations] = useState(null); // null = not yet fetched
 
   const platformLabel = PLATFORMS.find((p) => p.value === platform)?.label || platform;
   const profileUrlTemplate = PLATFORM_URLS[platform];
@@ -61,6 +63,15 @@ export default function ProfileCard() {
       })
       .catch(() => {});
   }, [platform, handle]);
+
+  const handleToggleAttestations = () => {
+    if (!attestationsOpen && attestations === null) {
+      api.get(`/api/public/attestations/${encodeURIComponent(platform)}/${encodeURIComponent(handle)}`)
+        .then((r) => setAttestations(r.data.attestations))
+        .catch(() => setAttestations([]));
+    }
+    setAttestationsOpen((o) => !o);
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -182,6 +193,47 @@ export default function ProfileCard() {
       >
         {copied ? '✓ Copied!' : '⬆ Copy link'}
       </button>
+
+      {/* Expandable attestations section */}
+      <div style={{ marginBottom: '24px', border: '1px solid #eee', borderRadius: '10px', overflow: 'hidden' }}>
+        <button
+          onClick={handleToggleAttestations}
+          style={{
+            width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '14px 16px', background: '#f8f9fa', border: 'none', cursor: 'pointer',
+          }}
+        >
+          <span style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a2e' }}>Attestations</span>
+          <span style={{ fontSize: '13px', color: '#888' }}>
+            {attestationsOpen ? '▲' : '▼'}
+          </span>
+        </button>
+
+        {attestationsOpen && (
+          <div style={{ padding: '0 16px 16px' }}>
+            {attestations === null ? (
+              <p style={{ fontSize: '13px', color: '#aaa', paddingTop: '12px' }}>Loading…</p>
+            ) : attestations.length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#aaa', paddingTop: '12px' }}>No public attestations.</p>
+            ) : (
+              attestations.map((a) => (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
+                  <TierBadge tier={a.issuer.currentTier} size="small" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '13px', fontWeight: 500, margin: 0, color: '#1a1a2e' }}>{a.attestationType}</p>
+                    {a.issuer.displayName && (
+                      <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>by {a.issuer.displayName}</p>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#aaa', flexShrink: 0 }}>
+                    {new Date(a.publicAt).toLocaleDateString()}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Link to full lookup */}
       <div style={{ marginBottom: '40px' }}>
