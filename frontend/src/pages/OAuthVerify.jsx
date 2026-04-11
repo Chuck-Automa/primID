@@ -74,7 +74,6 @@ export default function OAuthVerify() {
         return () => script.removeEventListener('load', initGoogle);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
