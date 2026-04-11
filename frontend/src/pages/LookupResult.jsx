@@ -23,12 +23,16 @@ const TIER_NAMES = {
   null: 'Ghost',
 };
 
-function Collapsible({ label, count, children }) {
+function Collapsible({ label, count, onOpen, children }) {
   const [open, setOpen] = useState(false);
+  const toggle = () => {
+    if (!open && onOpen) onOpen();
+    setOpen((o) => !o);
+  };
   return (
     <div style={{ marginTop: '4px' }}>
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         style={{
           background: 'none', border: 'none', padding: 0, cursor: 'pointer',
           fontSize: '13px', color: '#457b9d', display: 'flex', alignItems: 'center', gap: '4px',
@@ -48,6 +52,8 @@ export default function LookupResult() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [attestations, setAttestations] = useState(null); // null = not yet fetched
+  const [attestationsLoading, setAttestationsLoading] = useState(false);
 
   const platformLabel = PLATFORMS.find((p) => p.value === platform)?.label || platform;
 
@@ -157,6 +163,43 @@ export default function LookupResult() {
           <p style={{ fontSize: '15px', fontWeight: 600 }}>{user.displayName}</p>
         </div>
       )}
+
+      {/* Attestations */}
+      <div style={{ marginTop: '8px' }}>
+        <Collapsible
+          label="Attestations"
+          onOpen={() => {
+            if (attestations === null && !attestationsLoading) {
+              setAttestationsLoading(true);
+              api.get(`/api/public/attestations/${encodeURIComponent(platform)}/${encodeURIComponent(handle)}`)
+                .then((r) => setAttestations(r.data.attestations))
+                .catch(() => setAttestations([]))
+                .finally(() => setAttestationsLoading(false));
+            }
+          }}
+        >
+          {attestationsLoading ? (
+            <p style={{ fontSize: '12px', color: '#aaa' }}>Loading…</p>
+          ) : attestations === null || attestations.length === 0 ? (
+            <p style={{ fontSize: '12px', color: '#aaa' }}>No public attestations.</p>
+          ) : (
+            attestations.map((a) => (
+              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <TierBadge tier={a.issuer.currentTier} size="small" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '12px', fontWeight: 500, margin: 0, color: '#1a1a2e' }}>{a.attestationType}</p>
+                  {a.issuer.displayName && (
+                    <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>by {a.issuer.displayName}</p>
+                  )}
+                </div>
+                <span style={{ fontSize: '11px', color: '#aaa', flexShrink: 0 }}>
+                  {new Date(a.publicAt).toLocaleDateString()}
+                </span>
+              </div>
+            ))
+          )}
+        </Collapsible>
+      </div>
 
       <p style={{ fontSize: '11px', color: '#bbb', marginTop: '32px' }}>
         Verified by primID · tier data is read-only and sourced directly from the primID identity registry
