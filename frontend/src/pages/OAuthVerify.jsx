@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
@@ -23,10 +23,13 @@ const providerBtnStyle = (bg, color, border) => ({
   gap: '10px',
 });
 
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
 export default function OAuthVerify() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const googleBtnRef = useRef(null);
 
   const handleOAuth = async (provider, token) => {
     setError('');
@@ -42,6 +45,37 @@ export default function OAuthVerify() {
       setLoading(false);
     }
   };
+
+  // Render Google's button via GIS once the script is ready
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !googleBtnRef.current) return;
+
+    const initGoogle = () => {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => handleOAuth('google', response.credential),
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: googleBtnRef.current.offsetWidth || 320,
+        text: 'continue_with',
+      });
+    };
+
+    // Script may already be loaded or still loading
+    if (window.google?.accounts?.id) {
+      initGoogle();
+    } else {
+      const script = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if (script) {
+        script.addEventListener('load', initGoogle);
+        return () => script.removeEventListener('load', initGoogle);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div style={containerStyle}>
@@ -73,14 +107,19 @@ export default function OAuthVerify() {
         </ul>
       </div>
 
-      <button
-        style={providerBtnStyle('#e8e8e8', '#aaa')}
-        disabled
-        title="Add REACT_APP_GOOGLE_CLIENT_ID to enable"
-      >
-        <span style={{ fontSize: '18px' }}>G</span>
-        Continue with Google
-      </button>
+      {/* Google button — rendered by GIS when client ID is set, fallback otherwise */}
+      {GOOGLE_CLIENT_ID ? (
+        <div ref={googleBtnRef} style={{ marginBottom: '12px', minHeight: '44px' }} />
+      ) : (
+        <button
+          style={{ ...providerBtnStyle('#e8e8e8', '#aaa'), cursor: 'not-allowed' }}
+          disabled
+          title="Add REACT_APP_GOOGLE_CLIENT_ID to enable"
+        >
+          <span style={{ fontSize: '18px' }}>G</span>
+          Continue with Google
+        </button>
+      )}
 
       <button
         style={providerBtnStyle('#fff', '#1a1a2e', '1.5px solid #ddd')}

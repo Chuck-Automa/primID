@@ -32,6 +32,8 @@
         Object.defineProperty(window, 'ethereum', { value: {}, writable: true, configurable: true });
       }
     </script>
+  <!-- Google Identity Services — loads only when REACT_APP_GOOGLE_CLIENT_ID is set -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
