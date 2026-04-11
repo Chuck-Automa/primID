@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OTPForm from '../components/OTPForm';
 import api from '../services/api';
@@ -44,13 +44,15 @@ const oauthBtnStyle = (bg, color) => ({
   marginBottom: '10px',
 });
 
+const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthError, setOauthError] = useState('');
+  const googleBtnRef = useRef(null);
 
   useEffect(() => {
-    // Only redirect if token exists AND is not expired
     const token = localStorage.getItem('primid_token');
     if (!token) return;
     try {
@@ -71,14 +73,12 @@ export default function Onboarding() {
     navigate('/profile');
   };
 
-  const handleOAuth = async (provider) => {
+  // Registration/login via OAuth — routes through /api/auth/register (no auth required)
+  const handleOAuth = async (provider, token) => {
     setOauthError('');
     setOauthLoading(true);
     try {
-      // In dev, use stub token. In production, integrate Google/Apple SDK.
-      const testToken = provider === 'google' ? 'google_test_token' : 'apple_test_token';
-
-      const resp = await api.post('/api/verify/oauth', { provider, token: testToken });
+      const resp = await api.post('/api/auth/register', { method: 'oauth', provider, token });
       localStorage.setItem('primid_token', resp.data.token);
       localStorage.setItem('primid_user', JSON.stringify(resp.data.user));
       navigate('/profile');
@@ -88,6 +88,35 @@ export default function Onboarding() {
       setOauthLoading(false);
     }
   };
+
+  // Render Google's GIS button once the script is ready
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID || !googleBtnRef.current) return;
+
+    const initGoogle = () => {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => handleOAuth('google', response.credential),
+      });
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'outline',
+        size: 'large',
+        width: googleBtnRef.current.offsetWidth || 320,
+        text: 'continue_with',
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogle();
+    } else {
+      const script = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+      if (script) {
+        script.addEventListener('load', initGoogle);
+        return () => script.removeEventListener('load', initGoogle);
+      }
+    }
+  }, []);
 
   return (
     <div style={containerStyle}>
@@ -100,17 +129,22 @@ export default function Onboarding() {
 
       <div style={dividerStyle}>— or —</div>
 
-      <button
-        style={oauthBtnStyle('#4285F4', '#fff')}
-        onClick={() => handleOAuth('google')}
-        disabled={oauthLoading}
-      >
-        Continue with Google
-      </button>
+      {/* Google button — GIS-rendered when client ID set, fallback otherwise */}
+      {GOOGLE_CLIENT_ID ? (
+        <div ref={googleBtnRef} style={{ marginBottom: '10px', minHeight: '44px' }} />
+      ) : (
+        <button
+          style={{ ...oauthBtnStyle('#e8e8e8', '#aaa'), cursor: 'not-allowed' }}
+          disabled
+          title="Add REACT_APP_GOOGLE_CLIENT_ID to enable"
+        >
+          Continue with Google
+        </button>
+      )}
 
       <button
         style={oauthBtnStyle('#fff', '#1a1a2e')}
-        onClick={() => handleOAuth('apple')}
+        onClick={() => handleOAuth('apple', 'apple_test_token')}
         disabled={oauthLoading}
       >
         Continue with Apple
