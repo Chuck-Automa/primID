@@ -10,7 +10,7 @@ services:
     name: primid-backend
     runtime: node
     rootDir: backend
-    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy
+    buildCommand: npm ci --ignore-scripts && npx prisma generate && npx prisma migrate deploy
     startCommand: npm start
     healthCheckPath: /health
     envVars:
@@ -50,7 +50,7 @@ services:
   - type: static
     name: primid-frontend
     rootDir: frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --ignore-scripts && npm run build
     staticPublishPath: build
     routes:
       - type: rewrite

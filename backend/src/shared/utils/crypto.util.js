@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { parsePhoneNumberFromString } = require('libphonenumber-js');
+const { parsePhoneNumberFromString } = require('../../../vendor/libphonenumber-js');
 
 // ── Key bootstrap ─────────────────────────────────────────────────────────────
 //
