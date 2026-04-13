@@ -43,15 +43,14 @@ jobs:
           ALE_ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
           HMAC_SECRET: test-hmac-secret-not-for-production
 
-      # Socket.dev supply chain analysis — blocks on: new maintainer, obfuscated
-      # code, network calls in install scripts, dependency confusion candidates.
-      # Requires SOCKET_SECURITY_API_KEY secret set in GitHub repo settings.
+      # Socket.dev supply chain analysis via the official CLI.
+      # SocketDev/action@v1 mode:cli is broken upstream; use CLI directly.
+      # Requires SOCKET_SECURITY_API_KEY secret and SOCKET_ENABLED=true var.
       - name: Socket.dev supply chain scan
-        uses: SocketDev/action@v1
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
-        with:
-          mode: cli
-          socket-token: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+        run: npx --yes @socketsecurity/cli@1.1.82 scan
+        env:
+          SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
 
       # SBOM is the incident response record — archived per build.
       - name: Generate SBOM
@@ -90,12 +89,18 @@ jobs:
         env:
           CI: true
 
+      # Socket.dev supply chain analysis via the official CLI.
       - name: Socket.dev supply chain scan
-        uses: SocketDev/action@v1
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
-        with:
-          mode: cli
-          socket-token: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+        run: npx --yes @socketsecurity/cli@1.1.82 scan
+        env:
+          SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+
+      # @cyclonedx/cyclonedx-npm is not in frontend devDependencies (its transitive
+      # deps — libxmljs2 native bindings, ajv-formats@3, picomatch@4 — conflict with
+      # existing frontend deps). Install it on-demand for SBOM generation only.
+      - name: Install SBOM generator
+        run: npm install --no-save --ignore-scripts @cyclonedx/cyclonedx-npm@4.2.1
 
       - name: Generate SBOM
         run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json --output-format JSON
