@@ -50,7 +50,6 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthError, setOauthError] = useState('');
-  const googleBtnRef = useRef(null);
 
   useEffect(() => {
     const token = localStorage.getItem('primid_token');
@@ -89,25 +88,24 @@ export default function Onboarding() {
     }
   };
 
-  // Render Google's GIS button once the script is ready
+  // Initialise Google authorization code client (scope: openid only).
+  // Uses the code flow so the consent screen shows no email or profile data.
+  const googleClientRef = useRef(null);
   useEffect(() => {
-    if (!GOOGLE_CLIENT_ID || !googleBtnRef.current) return;
+    if (!GOOGLE_CLIENT_ID) return;
 
     const initGoogle = () => {
-      if (!window.google?.accounts?.id) return;
-      window.google.accounts.id.initialize({
+      if (!window.google?.accounts?.oauth2) return;
+      googleClientRef.current = window.google.accounts.oauth2.initCodeClient({
         client_id: GOOGLE_CLIENT_ID,
-        callback: (response) => handleOAuth('google', response.credential),
-      });
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: 'outline',
-        size: 'large',
-        width: googleBtnRef.current.offsetWidth || 320,
-        text: 'continue_with',
+        scope: 'openid',
+        callback: (response) => {
+          if (response.code) handleOAuth('google', response.code);
+        },
       });
     };
 
-    if (window.google?.accounts?.id) {
+    if (window.google?.accounts?.oauth2) {
       initGoogle();
     } else {
       const script = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
@@ -129,18 +127,14 @@ export default function Onboarding() {
 
       <div style={dividerStyle}>— or —</div>
 
-      {/* Google button — GIS-rendered when client ID set, fallback otherwise */}
-      {GOOGLE_CLIENT_ID ? (
-        <div ref={googleBtnRef} style={{ marginBottom: '10px', minHeight: '44px' }} />
-      ) : (
-        <button
-          style={{ ...oauthBtnStyle('#e8e8e8', '#aaa'), cursor: 'not-allowed' }}
-          disabled
-          title="Add REACT_APP_GOOGLE_CLIENT_ID to enable"
-        >
-          Continue with Google
-        </button>
-      )}
+      <button
+        style={oauthBtnStyle(GOOGLE_CLIENT_ID ? '#fff' : '#e8e8e8', GOOGLE_CLIENT_ID ? '#1a1a2e' : '#aaa')}
+        onClick={() => googleClientRef.current?.requestCode()}
+        disabled={oauthLoading || !GOOGLE_CLIENT_ID}
+        title={GOOGLE_CLIENT_ID ? undefined : 'Add REACT_APP_GOOGLE_CLIENT_ID to enable'}
+      >
+        Continue with Google
+      </button>
 
       <button
         style={oauthBtnStyle('#fff', '#1a1a2e')}

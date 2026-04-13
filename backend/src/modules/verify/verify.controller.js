@@ -153,10 +153,27 @@ const verifyOAuth = async (req, res, next) => {
     if (provider === 'google') {
       try {
         const axios = require('axios');
-        const resp = await axios.get(
-          `https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${token}`
+        // Exchange the authorization code for tokens. redirect_uri 'postmessage' is
+        // the required value for the JavaScript popup code flow (initCodeClient).
+        const params = new URLSearchParams({
+          code:          token,
+          client_id:     process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
+          redirect_uri:  'postmessage',
+          grant_type:    'authorization_code',
+        });
+        const tokenResp = await axios.post(
+          'https://oauth2.googleapis.com/token',
+          params.toString(),
+          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
         );
-        oauthUserId = resp.data.sub;
+        const idToken = tokenResp.data.id_token;
+        if (!idToken) throw new Error('No id_token in Google token exchange response.');
+        // Verify the ID token and extract sub — tokeninfo validates signature and expiry.
+        const verifyResp = await axios.get(
+          `https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${idToken}`
+        );
+        oauthUserId = verifyResp.data.sub;
         if (!oauthUserId) throw new Error('Missing sub in Google token response.');
       } catch (err) {
         if (err.response || !err.statusCode) {
