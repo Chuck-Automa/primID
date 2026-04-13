@@ -183,20 +183,30 @@ export default function LookupResult() {
           ) : attestations === null || attestations.length === 0 ? (
             <p style={{ fontSize: '12px', color: '#aaa' }}>No public attestations.</p>
           ) : (
-            attestations.map((a) => (
-              <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                <TierBadge tier={a.issuer.currentTier} size="small" />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '12px', fontWeight: 500, margin: 0, color: '#1a1a2e' }}>{a.attestationType}</p>
-                  {a.issuer.displayName && (
-                    <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>by {a.issuer.displayName}</p>
-                  )}
+            attestations.map((a) => {
+              const revoked = !!a.revokedAt;
+              return (
+                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', opacity: revoked ? 0.6 : 1 }}>
+                  <TierBadge tier={a.issuer.currentTier} size="small" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '12px', fontWeight: 500, margin: 0, color: '#1a1a2e', textDecoration: revoked ? 'line-through' : 'none' }}>
+                      {a.attestationType}
+                    </p>
+                    {a.issuer.displayName && (
+                      <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>by {a.issuer.displayName}</p>
+                    )}
+                    {revoked && (
+                      <p style={{ fontSize: '11px', color: '#c0392b', margin: '2px 0 0' }}>
+                        Revoked · {new Date(a.revokedAt).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#aaa', flexShrink: 0 }}>
+                    {new Date(a.publicAt).toLocaleDateString()}
+                  </span>
                 </div>
-                <span style={{ fontSize: '11px', color: '#aaa', flexShrink: 0 }}>
-                  {new Date(a.publicAt).toLocaleDateString()}
-                </span>
-              </div>
-            ))
+              );
+            })
           )}
         </Collapsible>
       </div>

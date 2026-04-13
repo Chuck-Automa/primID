@@ -147,7 +147,8 @@ const listPublicAttestations = async (req, res, next) => {
       where: {
         subjectId: account.userId,
         publicAt:  { not: null },
-        revokedAt: null,
+        // revokedAt intentionally NOT filtered — revoked attestations remain
+        // visible per immutability principle: rescinding is as loud as attesting.
       },
       orderBy: { publicAt: 'desc' },
       include: {
@@ -161,6 +162,7 @@ const listPublicAttestations = async (req, res, next) => {
       id:              a.id,
       attestationType: a.attestationType,
       publicAt:        a.publicAt,
+      revokedAt:       a.revokedAt,
       issuer: {
         currentTier: a.issuer.currentTier,
         displayName: a.issuer.displayName,
