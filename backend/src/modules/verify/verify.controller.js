@@ -152,49 +152,18 @@ const verifyOAuth = async (req, res, next) => {
 
     if (provider === 'google') {
       try {
-        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-          throw Object.assign(new Error('Google OAuth is not configured on this server.'), { statusCode: 503 });
-        }
         const axios = require('axios');
-        // Exchange the authorization code for tokens. redirect_uri 'postmessage' is
-        // the required value for the JavaScript popup code flow (initCodeClient).
-        const params = new URLSearchParams({
-          code:          token,
-          client_id:     process.env.GOOGLE_CLIENT_ID,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET,
-          redirect_uri:  'postmessage',
-          grant_type:    'authorization_code',
-        });
-        let tokenResp;
-        try {
-          tokenResp = await axios.post(
-            'https://oauth2.googleapis.com/token',
-            params.toString(),
-            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-          );
-        } catch (exchangeErr) {
-          const googleError = exchangeErr.response?.data?.error;
-          const googleDesc  = exchangeErr.response?.data?.error_description;
-          // Log exchange error without token values — safe to surface error type
-          console.error('[google-oauth] code exchange failed:', googleError, googleDesc);
-          return res.status(401).json({
-            success: false,
-            message: 'Google sign-in failed.',
-            ...(process.env.NODE_ENV !== 'production' && { detail: `${googleError}: ${googleDesc}` }),
-          });
-        }
-        const idToken = tokenResp.data.id_token;
-        if (!idToken) throw new Error('No id_token in Google token exchange response.');
-        // Verify the ID token and extract sub — tokeninfo validates signature and expiry.
-        const verifyResp = await axios.get(
-          `https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=${idToken}`
+        // Validate the access token and extract sub.
+        // tokeninfo verifies the token is live and issued for our client.
+        const resp = await axios.get(
+          `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
         );
-        oauthUserId = verifyResp.data.sub;
+        if (resp.data.aud !== process.env.GOOGLE_CLIENT_ID) {
+          throw new Error('Google token audience mismatch.');
+        }
+        oauthUserId = resp.data.sub;
         if (!oauthUserId) throw new Error('Missing sub in Google token response.');
       } catch (err) {
-        if (err.statusCode === 503) {
-          return res.status(503).json({ success: false, message: err.message });
-        }
         if (err.response || !err.statusCode) {
           return res.status(401).json({ success: false, message: 'Invalid Google token.' });
         }

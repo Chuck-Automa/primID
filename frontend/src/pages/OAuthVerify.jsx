@@ -46,18 +46,19 @@ export default function OAuthVerify() {
     }
   };
 
-  // Initialise Google authorization code client (scope: openid only).
-  // Uses the code flow so the consent screen shows no email or profile data.
+  // Initialise Google token client (scope: openid only).
+  // Access token flow — no code exchange, no client secret required.
+  // Consent screen shows only "Know who you are on Google" with openid scope.
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
 
     const initGoogle = () => {
       if (!window.google?.accounts?.oauth2) return;
-      googleClientRef.current = window.google.accounts.oauth2.initCodeClient({
+      googleClientRef.current = window.google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: 'openid',
         callback: (response) => {
-          if (response.code) handleOAuth('google', response.code);
+          if (response.access_token) handleOAuth('google', response.access_token);
         },
       });
     };
@@ -109,7 +110,7 @@ export default function OAuthVerify() {
           GOOGLE_CLIENT_ID ? '#1a1a2e' : '#aaa',
           GOOGLE_CLIENT_ID ? '1.5px solid #ddd' : 'none'
         )}
-        onClick={() => googleClientRef.current?.requestCode()}
+        onClick={() => googleClientRef.current?.requestAccessToken()}
         disabled={loading || !GOOGLE_CLIENT_ID}
         title={GOOGLE_CLIENT_ID ? undefined : 'Add REACT_APP_GOOGLE_CLIENT_ID to enable'}
       >
