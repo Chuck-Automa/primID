@@ -2,10 +2,11 @@ const request = require('supertest');
 const app = require('../../src/app');
 const prisma = require('../../src/shared/db/prisma');
 
-jest.mock('axios');
-const axios = require('axios');
-
 const PHONE = '+15555550101';
+const TEST_GOOGLE_CLIENT_ID = 'test-google-client-id';
+
+let _originalFetch;
+beforeEach(() => { _originalFetch = global.fetch; });
 
 function makeUser(overrides = {}) {
   return {
@@ -24,6 +25,8 @@ afterEach(() => {
   delete process.env.NODE_ENV;
   delete process.env.STAGING_OTP_WHITELIST;
   delete process.env.STAGING_OTP_FIXED_CODE;
+  delete process.env.GOOGLE_CLIENT_ID;
+  global.fetch = _originalFetch;
 });
 
 describe('POST /api/auth/register', () => {
@@ -84,8 +87,10 @@ describe('POST /api/auth/register', () => {
 
   describe('method=oauth', () => {
     test('200 — Google OAuth registers new user', async () => {
-      axios.get = jest.fn().mockResolvedValue({
-        data: { sub: 'google-uid-abc', email: 'test@example.com' },
+      process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ sub: 'google-uid-abc', aud: TEST_GOOGLE_CLIENT_ID }),
       });
 
       // No existing OAuth user → registration path
@@ -146,8 +151,10 @@ describe('POST /api/auth/login', () => {
   });
 
   test('200 — OAuth login for existing user', async () => {
-    axios.get = jest.fn().mockResolvedValue({
-      data: { sub: 'google-uid-existing', email: 'existing@example.com' },
+    process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sub: 'google-uid-existing', aud: TEST_GOOGLE_CLIENT_ID }),
     });
 
     const existingUser = makeUser({ id: 'uid-existing', oauthVerifiedAt: new Date() });
@@ -165,8 +172,10 @@ describe('POST /api/auth/login', () => {
   });
 
   test('404 — OAuth login returns 404 for unregistered account (_isLoginOnly)', async () => {
-    axios.get = jest.fn().mockResolvedValue({
-      data: { sub: 'google-uid-unknown', email: 'unknown@example.com' },
+    process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sub: 'google-uid-unknown', aud: TEST_GOOGLE_CLIENT_ID }),
     });
 
     prisma.user.findUnique.mockResolvedValueOnce(null); // no account

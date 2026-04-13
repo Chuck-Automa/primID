@@ -2,10 +2,11 @@ const request = require('supertest');
 const app = require('../../src/app');
 const prisma = require('../../src/shared/db/prisma');
 
-jest.mock('axios');
-const axios = require('axios');
-
 const PHONE = '+15555550102';
+const TEST_GOOGLE_CLIENT_ID = 'test-google-client-id';
+
+let _originalFetch;
+beforeEach(() => { _originalFetch = global.fetch; });
 
 function makeUser(overrides = {}) {
   return {
@@ -27,6 +28,8 @@ afterEach(() => {
   delete process.env.NODE_ENV;
   delete process.env.STAGING_OTP_WHITELIST;
   delete process.env.STAGING_OTP_FIXED_CODE;
+  delete process.env.GOOGLE_CLIENT_ID;
+  global.fetch = _originalFetch;
 });
 
 describe('POST /api/verify/phone/initiate', () => {
@@ -127,7 +130,7 @@ describe('POST /api/verify/phone/confirm', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.token).toBeDefined();
-    expect(res.body.user.tier).toBe(3);
+    expect(res.body.user.currentTier).toBe(3);
   });
 
   test('404 — confirm with phone number that has no account', async () => {
@@ -181,68 +184,84 @@ describe('POST /api/verify/phone/confirm', () => {
   });
 });
 
-describe('POST /api/verify/oauth — login (existing user)', () => {
-  test('200 — Google OAuth login issues Tier 2 JWT', async () => {
-    axios.get = jest.fn().mockResolvedValue({
-      data: { sub: 'google-sub-xyz', email: 'user@gmail.com' },
+// POST /api/verify/oauth is the *authenticated* tier upgrade path.
+// Unauthenticated OAuth (registration / login) flows through /api/auth/register and
+// /api/auth/login — those are tested in auth.test.js.
+describe('POST /api/verify/oauth — authenticated upgrade path', () => {
+  // Helper: sign a test JWT using the same secret the test server uses.
+  function makeAuthToken(userId = 'uid-verify-test', tier = 3) {
+    const jwt = require('../../vendor/jsonwebtoken');
+    return jwt.sign({ userId, tier }, process.env.JWT_SECRET || 'test-secret-not-for-production', { expiresIn: '1h' });
+  }
+
+  test('200 — authenticated user links Google and upgrades to Tier 2', async () => {
+    process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sub: 'google-sub-xyz', aud: TEST_GOOGLE_CLIENT_ID }),
     });
 
-    const existingUser = makeUser({ id: 'uid-existing', oauthVerifiedAt: new Date() });
-    prisma.user.findUnique.mockResolvedValueOnce(existingUser); // oauthSubHmac lookup
-    prisma.user.upsert.mockResolvedValue(existingUser);
-    prisma.user.findUniqueOrThrow.mockResolvedValue(existingUser);
-    prisma.user.update.mockResolvedValue({ ...existingUser, currentTier: 2 });
+    const user = makeUser({ id: 'uid-verify-test', oauthVerifiedAt: new Date() });
+    prisma.user.findUnique.mockResolvedValueOnce(null); // oauthSubHmac lookup — not linked to another account
+    prisma.user.update.mockResolvedValueOnce(user);                         // set oauth fields
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce(user);              // computeAndSaveTier read
+    prisma.user.update.mockResolvedValueOnce({ ...user, currentTier: 2 }); // computeAndSaveTier write
 
     const res = await request(app)
       .post('/api/verify/oauth')
+      .set('Authorization', `Bearer ${makeAuthToken()}`)
       .send({ provider: 'google', token: 'valid-google-id-token' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.token).toBeDefined();
-    expect(res.body.user.tier).toBe(2);
+    expect(res.body.user.currentTier).toBe(2);
   });
 
-  test('200 — Google OAuth creates account for new user (upsert on first sign-in)', async () => {
-    axios.get = jest.fn().mockResolvedValue({
-      data: { sub: 'google-sub-new', email: 'new@gmail.com' },
-    });
-
-    const newUser = makeUser({ id: 'uid-new', oauthVerifiedAt: new Date() });
-    prisma.user.findUnique.mockResolvedValueOnce(null); // new user — no _isLoginOnly flag set
-    prisma.user.upsert.mockResolvedValue(newUser);
-    prisma.user.findUniqueOrThrow.mockResolvedValue(newUser);
-    prisma.user.update.mockResolvedValue({ ...newUser, currentTier: 2 });
+  test('200 — authenticated user links Apple stub (no APPLE_CLIENT_ID)', async () => {
+    const user = makeUser({ id: 'uid-verify-test', oauthVerifiedAt: new Date() });
+    prisma.user.findUnique.mockResolvedValueOnce(null); // oauthSubHmac lookup
+    prisma.user.update.mockResolvedValueOnce(user);
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce(user);
+    prisma.user.update.mockResolvedValueOnce({ ...user, currentTier: 2 });
 
     const res = await request(app)
       .post('/api/verify/oauth')
-      .send({ provider: 'google', token: 'valid-google-id-token' });
-
-    expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
-  });
-
-  test('200 — Apple stub succeeds in dev (no APPLE_CLIENT_ID)', async () => {
-    const newUser = makeUser({ id: 'uid-apple-stub', oauthVerifiedAt: new Date() });
-    prisma.user.findUnique.mockResolvedValueOnce(null);
-    prisma.user.upsert.mockResolvedValue(newUser);
-    prisma.user.findUniqueOrThrow.mockResolvedValue(newUser);
-    prisma.user.update.mockResolvedValue({ ...newUser, currentTier: 2 });
-
-    // APPLE_CLIENT_ID is not set in test env — stub path should be taken.
-    const res = await request(app)
-      .post('/api/verify/oauth')
+      .set('Authorization', `Bearer ${makeAuthToken()}`)
       .send({ provider: 'apple', token: 'apple_test_token' });
 
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
   });
 
-  test('401 — invalid Google token', async () => {
-    axios.get = jest.fn().mockRejectedValue({ response: { status: 400 } });
+  test('409 — OAuth identity already linked to a different account', async () => {
+    process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ sub: 'google-sub-conflict', aud: TEST_GOOGLE_CLIENT_ID }),
+    });
+
+    // oauthSubHmac lookup returns a *different* user — conflict
+    prisma.user.findUnique.mockResolvedValueOnce(makeUser({ id: 'uid-other-user' }));
 
     const res = await request(app)
       .post('/api/verify/oauth')
+      .set('Authorization', `Bearer ${makeAuthToken('uid-verify-test')}`)
+      .send({ provider: 'google', token: 'valid-google-id-token' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.message).toMatch(/already linked/i);
+  });
+
+  test('401 — invalid Google token', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      json: () => Promise.resolve({ error: 'invalid_token' }),
+    });
+
+    const res = await request(app)
+      .post('/api/verify/oauth')
+      .set('Authorization', `Bearer ${makeAuthToken()}`)
       .send({ provider: 'google', token: 'bad-token' });
 
     expect(res.status).toBe(401);
@@ -255,6 +274,7 @@ describe('POST /api/verify/oauth — login (existing user)', () => {
 
     const res = await request(app)
       .post('/api/verify/oauth')
+      .set('Authorization', `Bearer ${makeAuthToken()}`)
       .send({ provider: 'apple', token: 'any-apple-token' });
 
     process.env.NODE_ENV = original;
@@ -265,6 +285,7 @@ describe('POST /api/verify/oauth — login (existing user)', () => {
   test('400 — invalid provider', async () => {
     const res = await request(app)
       .post('/api/verify/oauth')
+      .set('Authorization', `Bearer ${makeAuthToken()}`)
       .send({ provider: 'twitter', token: 'some-token' });
 
     expect(res.status).toBe(400);
@@ -273,9 +294,18 @@ describe('POST /api/verify/oauth — login (existing user)', () => {
   test('400 — missing token', async () => {
     const res = await request(app)
       .post('/api/verify/oauth')
+      .set('Authorization', `Bearer ${makeAuthToken()}`)
       .send({ provider: 'google' });
 
     expect(res.status).toBe(400);
+  });
+
+  test('401 — no auth token (unauthenticated request rejected)', async () => {
+    const res = await request(app)
+      .post('/api/verify/oauth')
+      .send({ provider: 'google', token: 'some-token' });
+
+    expect(res.status).toBe(401);
   });
 });
 
