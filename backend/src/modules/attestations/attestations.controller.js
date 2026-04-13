@@ -75,6 +75,26 @@ const listAttestations = async (req, res, next) => {
     const attestations = await prisma.attestation.findMany({
       where,
       orderBy: { createdAt: 'desc' },
+      include: {
+        issuer: {
+          select: {
+            displayName: true,
+            socialAccounts: {
+              where: { removedAt: null },
+              select: { platform: true, handle: true },
+            },
+          },
+        },
+        subject: {
+          select: {
+            displayName: true,
+            socialAccounts: {
+              where: { removedAt: null },
+              select: { platform: true, handle: true },
+            },
+          },
+        },
+      },
     });
 
     return res.status(200).json({ success: true, attestations });

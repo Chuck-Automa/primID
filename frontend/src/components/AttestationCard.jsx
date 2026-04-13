@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { PLATFORMS } from '../data/platforms';
 
 const cardStyle = {
   border: '1px solid #eee',
@@ -19,6 +21,38 @@ const badgeStyle = (revoked) => ({
   marginBottom: '8px',
 });
 
+function SocialHandles({ user, label }) {
+  const accounts = user?.socialAccounts || [];
+  const name = user?.displayName;
+
+  return (
+    <div style={{ marginBottom: '6px' }}>
+      <span style={{ fontSize: '12px', color: '#888', fontWeight: 600 }}>{label}: </span>
+      {name && (
+        <span style={{ fontSize: '12px', color: '#555', marginRight: '6px' }}>{name}</span>
+      )}
+      {accounts.length === 0 && !name && (
+        <span style={{ fontSize: '12px', color: '#bbb' }}>No linked handles</span>
+      )}
+      {accounts.map((a) => {
+        const platformLabel = PLATFORMS.find((p) => p.value === a.platform)?.label || a.platform;
+        return (
+          <Link
+            key={`${a.platform}-${a.handle}`}
+            to={`/lookup/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`}
+            style={{
+              display: 'inline-block', fontSize: '12px', color: '#457b9d',
+              textDecoration: 'none', marginRight: '8px',
+            }}
+          >
+            {platformLabel} @{a.handle} ›
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AttestationCard({ attestation, currentUserId, onConsent, onRevoke }) {
   const isRevoked = !!attestation.revokedAt;
   const isPublic = !!attestation.publicAt;
@@ -28,16 +62,12 @@ export default function AttestationCard({ attestation, currentUserId, onConsent,
   return (
     <div style={cardStyle}>
       <span style={badgeStyle(isRevoked)}>{isRevoked ? 'Revoked' : isPublic ? 'Active' : 'Pending Consent'}</span>
-      <p style={{ fontSize: '14px', marginBottom: '4px' }}>
+      <p style={{ fontSize: '14px', marginBottom: '8px' }}>
         <strong>Note:</strong> {attestation.attestationType}
       </p>
-      <p style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-        <strong>Issuer:</strong> {attestation.issuerId}
-      </p>
-      <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-        <strong>Subject:</strong> {attestation.subjectId}
-      </p>
-      <p style={{ fontSize: '11px', color: '#999' }}>
+      <SocialHandles user={attestation.issuer} label="Issuer" />
+      <SocialHandles user={attestation.subject} label="Subject" />
+      <p style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>
         Created: {new Date(attestation.createdAt).toLocaleDateString()}
       </p>
 
