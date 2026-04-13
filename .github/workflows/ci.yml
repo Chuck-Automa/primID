@@ -50,7 +50,8 @@ jobs:
         uses: SocketDev/action@v1
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
         with:
-          api-key: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+          mode: cli
+          socket-token: ${{ secrets.SOCKET_SECURITY_API_KEY }}
 
       # SBOM is the incident response record — archived per build.
       - name: Generate SBOM
@@ -93,7 +94,8 @@ jobs:
         uses: SocketDev/action@v1
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
         with:
-          api-key: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+          mode: cli
+          socket-token: ${{ secrets.SOCKET_SECURITY_API_KEY }}
 
       - name: Generate SBOM
         run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json --output-format JSON
