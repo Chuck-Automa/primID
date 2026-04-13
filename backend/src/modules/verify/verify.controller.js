@@ -152,6 +152,9 @@ const verifyOAuth = async (req, res, next) => {
 
     if (provider === 'google') {
       try {
+        if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+          throw Object.assign(new Error('Google OAuth is not configured on this server.'), { statusCode: 503 });
+        }
         const axios = require('axios');
         // Exchange the authorization code for tokens. redirect_uri 'postmessage' is
         // the required value for the JavaScript popup code flow (initCodeClient).
@@ -162,11 +165,24 @@ const verifyOAuth = async (req, res, next) => {
           redirect_uri:  'postmessage',
           grant_type:    'authorization_code',
         });
-        const tokenResp = await axios.post(
-          'https://oauth2.googleapis.com/token',
-          params.toString(),
-          { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-        );
+        let tokenResp;
+        try {
+          tokenResp = await axios.post(
+            'https://oauth2.googleapis.com/token',
+            params.toString(),
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+          );
+        } catch (exchangeErr) {
+          const googleError = exchangeErr.response?.data?.error;
+          const googleDesc  = exchangeErr.response?.data?.error_description;
+          // Log exchange error without token values — safe to surface error type
+          console.error('[google-oauth] code exchange failed:', googleError, googleDesc);
+          return res.status(401).json({
+            success: false,
+            message: 'Google sign-in failed.',
+            ...(process.env.NODE_ENV !== 'production' && { detail: `${googleError}: ${googleDesc}` }),
+          });
+        }
         const idToken = tokenResp.data.id_token;
         if (!idToken) throw new Error('No id_token in Google token exchange response.');
         // Verify the ID token and extract sub — tokeninfo validates signature and expiry.
@@ -176,6 +192,9 @@ const verifyOAuth = async (req, res, next) => {
         oauthUserId = verifyResp.data.sub;
         if (!oauthUserId) throw new Error('Missing sub in Google token response.');
       } catch (err) {
+        if (err.statusCode === 503) {
+          return res.status(503).json({ success: false, message: err.message });
+        }
         if (err.response || !err.statusCode) {
           return res.status(401).json({ success: false, message: 'Invalid Google token.' });
         }
