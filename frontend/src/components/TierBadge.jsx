@@ -8,8 +8,11 @@ const TIER_CONFIG = {
   null: { symbol: '○', label: 'Ghost', color: '#adb5bd' },
 };
 
-export default function TierBadge({ tier, size = 'medium' }) {
+const REVOKED_COLOR = '#c0392b';
+
+export default function TierBadge({ tier, size = 'medium', revoked = false }) {
   const config = TIER_CONFIG[tier] ?? TIER_CONFIG[null];
+  const color = revoked ? REVOKED_COLOR : config.color;
 
   const sizes = {
     small: { symbol: '20px', label: '10px', padding: '4px 8px' },
@@ -26,9 +29,9 @@ export default function TierBadge({ tier, size = 'medium' }) {
         alignItems: 'center',
         gap: '8px',
         padding: s.padding,
-        border: `2px solid ${config.color}`,
+        border: `2px solid ${color}`,
         borderRadius: '8px',
-        color: config.color,
+        color,
       }}
     >
       <span style={{ fontSize: s.symbol, lineHeight: 1 }}>{config.symbol}</span>

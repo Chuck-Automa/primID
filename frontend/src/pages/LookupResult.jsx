@@ -187,7 +187,7 @@ export default function LookupResult() {
               const revoked = !!a.revokedAt;
               return (
                 <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', opacity: revoked ? 0.6 : 1 }}>
-                  <TierBadge tier={a.issuer.currentTier} size="small" />
+                  <TierBadge tier={a.issuer.currentTier} size="small" revoked={revoked} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: '12px', fontWeight: 500, margin: 0, color: '#1a1a2e', textDecoration: revoked ? 'line-through' : 'none' }}>
                       {a.attestationType}
