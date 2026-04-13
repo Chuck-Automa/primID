@@ -81,8 +81,11 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # react-scripts@5.0.1 has peer dep conflicts with modern transitive deps
+      # (picomatch@4, yaml@2, typescript@4.9.5). --legacy-peer-deps matches
+      # how the lockfile was generated and avoids EUSAGE sync errors.
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm ci --ignore-scripts --legacy-peer-deps
 
       - name: Run tests
         run: npm test -- --watchAll=false --ci
@@ -100,7 +103,7 @@ jobs:
       # deps — libxmljs2 native bindings, ajv-formats@3, picomatch@4 — conflict with
       # existing frontend deps). Install it on-demand for SBOM generation only.
       - name: Install SBOM generator
-        run: npm install --no-save --ignore-scripts @cyclonedx/cyclonedx-npm@4.2.1
+        run: npm install --no-save --ignore-scripts --legacy-peer-deps @cyclonedx/cyclonedx-npm@4.2.1
 
       - name: Generate SBOM
         run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json --output-format JSON
