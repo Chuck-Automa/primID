@@ -48,7 +48,7 @@ jobs:
       # Requires SOCKET_SECURITY_API_KEY secret and SOCKET_ENABLED=true var.
       - name: Socket.dev supply chain scan
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
-        run: npx --yes @socketsecurity/cli@1.1.82 scan
+        run: npx --yes @socketsecurity/cli@1.1.82 scan create --defaultBranch --pendingHead
         env:
           SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
 
@@ -92,7 +92,7 @@ jobs:
       # Socket.dev supply chain analysis via the official CLI.
       - name: Socket.dev supply chain scan
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
-        run: npx --yes @socketsecurity/cli@1.1.82 scan
+        run: npx --yes @socketsecurity/cli@1.1.82 scan create --defaultBranch --pendingHead
         env:
           SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
 
