@@ -1,6 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import Attestations from '../Attestations';
+
+const renderAttestations = () =>
+  render(<MemoryRouter><Attestations /></MemoryRouter>);
 
 jest.mock('../../services/api');
 import api from '../../services/api';
@@ -18,42 +22,45 @@ function makeAttestation(overrides = {}) {
     publicAt: null,
     revokedAt: null,
     createdAt: new Date().toISOString(),
+    issuer: { displayName: null, socialAccounts: [] },
+    subject: { displayName: null, socialAccounts: [] },
     ...overrides,
   };
+}
+
+// Attestations calls api.get twice on mount: /api/user/me and /api/attestations.
+// This helper returns correct data for each so the tier gate passes and userId is set.
+function mockAttestGet(attestations = []) {
+  api.get = jest.fn().mockImplementation((url) => {
+    if (url === '/api/user/me') {
+      return Promise.resolve({ data: { user: { id: CURRENT_USER_ID, currentTier: 2 } } });
+    }
+    return Promise.resolve({ data: { attestations } });
+  });
 }
 
 describe('Attestations page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorage.setItem(
-      'primid_user',
-      JSON.stringify({ id: CURRENT_USER_ID, tier: 2 })
-    );
-  });
-
-  afterEach(() => {
-    localStorage.clear();
   });
 
   test('renders heading and tab buttons', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { attestations: [] } });
-    render(<Attestations />);
-    await waitFor(() => expect(screen.getByText(/Attestations/i)).toBeInTheDocument());
+    mockAttestGet();
+    renderAttestations();
+    await waitFor(() => expect(screen.getByRole('heading', { name: /^Attestations$/i })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /received/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /issued/i })).toBeInTheDocument();
   });
 
   test('shows "No attestations yet" when list is empty', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { attestations: [] } });
-    render(<Attestations />);
+    mockAttestGet();
+    renderAttestations();
     await waitFor(() => expect(screen.getByText(/no attestations yet/i)).toBeInTheDocument());
   });
 
   test('shows received attestation in "Received" tab', async () => {
-    api.get = jest.fn().mockResolvedValue({
-      data: { attestations: [makeAttestation()] },
-    });
-    render(<Attestations />);
+    mockAttestGet([makeAttestation()]);
+    renderAttestations();
     await waitFor(() => expect(screen.getByText(/vouches_for/)).toBeInTheDocument());
   });
 
@@ -66,11 +73,9 @@ describe('Attestations page', () => {
       attestationType: 'co_founder',
     });
 
-    api.get = jest.fn().mockResolvedValue({
-      data: { attestations: [receivedAttest, issuedAttest] },
-    });
+    mockAttestGet([receivedAttest, issuedAttest]);
 
-    render(<Attestations />);
+    renderAttestations();
     await waitFor(() => screen.getByText(/vouches_for/));
 
     fireEvent.click(screen.getByRole('button', { name: /issued/i }));
@@ -79,9 +84,9 @@ describe('Attestations page', () => {
   });
 
   test('clicking "+ New" toggles the create form', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { attestations: [] } });
-    render(<Attestations />);
-    await waitFor(() => screen.getByText(/Attestations/i));
+    mockAttestGet();
+    renderAttestations();
+    await waitFor(() => screen.getByRole('heading', { name: /^Attestations$/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ new/i }));
     expect(screen.getByPlaceholderText(/username \/ handle/i)).toBeInTheDocument();
@@ -92,11 +97,11 @@ describe('Attestations page', () => {
   });
 
   test('create form submits platform+handle and refreshes list on success', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { attestations: [] } });
+    mockAttestGet();
     api.post = jest.fn().mockResolvedValue({ data: { success: true } });
 
-    render(<Attestations />);
-    await waitFor(() => screen.getByText(/Attestations/i));
+    renderAttestations();
+    await waitFor(() => screen.getByRole('heading', { name: /^Attestations$/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ new/i }));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'github' } });
@@ -113,17 +118,17 @@ describe('Attestations page', () => {
       handle: 'chuck-automa',
       attestationType: 'vouches_for',
     }));
-    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenCalledTimes(3); // user/me + initial attestations load + after create
   });
 
   test('shows error message when create fails', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { attestations: [] } });
+    mockAttestGet();
     api.post = jest.fn().mockRejectedValue({
       response: { data: { message: 'Cannot issue attestation to yourself.' } },
     });
 
-    render(<Attestations />);
-    await waitFor(() => screen.getByText(/Attestations/i));
+    renderAttestations();
+    await waitFor(() => screen.getByRole('heading', { name: /^Attestations$/i }));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ new/i }));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'github' } });

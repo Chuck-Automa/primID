@@ -41,6 +41,17 @@ function renderProfile() {
   );
 }
 
+// Profile calls api.get twice: /api/user/me and /api/social-accounts.
+// This helper mocks both so socialAccounts state is never set to undefined.
+function mockProfileGet(userOverrides = {}) {
+  api.get = jest.fn().mockImplementation((url) => {
+    if (url === '/api/social-accounts') {
+      return Promise.resolve({ data: { accounts: [] } });
+    }
+    return Promise.resolve({ data: { user: makeUser(userOverrides) } });
+  });
+}
+
 describe('Profile page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -54,7 +65,7 @@ describe('Profile page', () => {
   });
 
   test('renders tier badge and tier name after load', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    mockProfileGet();
     renderProfile();
     await waitFor(() => expect(screen.getByText(/Your Identity/i)).toBeInTheDocument());
     expect(screen.getAllByText('▲').length).toBeGreaterThanOrEqual(1);
@@ -62,7 +73,7 @@ describe('Profile page', () => {
   });
 
   test('shows "Done" for completed tiers', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    mockProfileGet();
     renderProfile();
     await waitFor(() => screen.getByText(/Your Identity/i));
     // Tier 3 (Phone Verified) and Tier 2 (OAuth) are both done
@@ -71,7 +82,7 @@ describe('Profile page', () => {
   });
 
   test('shows user ID and member since date', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    mockProfileGet();
     renderProfile();
     await waitFor(() => screen.getByText(/Your Identity/i));
     expect(screen.getByText(/uid-profile-test/)).toBeInTheDocument();
@@ -79,7 +90,7 @@ describe('Profile page', () => {
   });
 
   test('logout button clears localStorage and navigates home', async () => {
-    api.get = jest.fn().mockResolvedValue({ data: { user: makeUser() } });
+    mockProfileGet();
     localStorage.setItem('primid_token', 'test-token');
     localStorage.setItem('primid_user', JSON.stringify({ id: 'uid-1' }));
 
@@ -99,18 +110,14 @@ describe('Profile page', () => {
   });
 
   test('shows upgrade prompts for Tier 3 user', async () => {
-    api.get = jest.fn().mockResolvedValue({
-      data: { user: makeUser({ currentTier: 3, oauthVerifiedAt: null, oauthProvider: null }) },
-    });
+    mockProfileGet({ currentTier: 3, oauthVerifiedAt: null, oauthProvider: null });
     renderProfile();
     await waitFor(() => screen.getByText(/Your Identity/i));
     expect(screen.getByText(/Tier 2 — Connect Google or Apple/i)).toBeInTheDocument();
   });
 
   test('never renders raw phone number or oauthSub', async () => {
-    api.get = jest.fn().mockResolvedValue({
-      data: { user: makeUser({ phoneNumber: '+15555551234', oauthSub: 'google|abc' }) },
-    });
+    mockProfileGet({ phoneNumber: '+15555551234', oauthSub: 'google|abc' });
     renderProfile();
     await waitFor(() => screen.getByText(/Your Identity/i));
     expect(screen.queryByText('+15555551234')).not.toBeInTheDocument();

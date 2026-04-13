@@ -1,6 +1,10 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import SocialAccounts from '../SocialAccounts';
+
+const renderSocialAccounts = () =>
+  render(<MemoryRouter><SocialAccounts /></MemoryRouter>);
 
 jest.mock('../../services/api');
 import api from '../../services/api';
@@ -14,13 +18,13 @@ describe('SocialAccounts page', () => {
 
   test('renders heading', async () => {
     api.get = jest.fn().mockResolvedValue({ data: { accounts: [] } });
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => expect(screen.getByText(/Social Accounts/i)).toBeInTheDocument());
   });
 
   test('shows "No social accounts linked yet." when list is empty', async () => {
     api.get = jest.fn().mockResolvedValue({ data: { accounts: [] } });
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() =>
       expect(screen.getByText(/no social accounts linked yet/i)).toBeInTheDocument()
     );
@@ -34,7 +38,7 @@ describe('SocialAccounts page', () => {
         ],
       },
     });
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => expect(screen.getByText('GitHub')).toBeInTheDocument());
     expect(screen.getByText('chuck-dev')).toBeInTheDocument();
   });
@@ -45,13 +49,13 @@ describe('SocialAccounts page', () => {
         accounts: [{ id: 'acc-1', platform: 'farcaster', handle: 'chuck.eth', isPublic: true }],
       },
     });
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => expect(screen.getByText(/Verifiable/i)).toBeInTheDocument());
   });
 
   test('clicking "+ Add" toggles the add form', async () => {
     api.get = jest.fn().mockResolvedValue({ data: { accounts: [] } });
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => screen.getByText(/Social Accounts/i));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ add/i }));
@@ -65,7 +69,7 @@ describe('SocialAccounts page', () => {
     api.get = jest.fn().mockResolvedValue({ data: { accounts: [] } });
     api.post = jest.fn().mockResolvedValue({ data: { success: true } });
 
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => screen.getByText(/Social Accounts/i));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ add/i }));
@@ -86,7 +90,7 @@ describe('SocialAccounts page', () => {
 
   test('platform change auto-sets isPublic for public platforms', async () => {
     api.get = jest.fn().mockResolvedValue({ data: { accounts: [] } });
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => screen.getByText(/Social Accounts/i));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ add/i }));
@@ -101,7 +105,7 @@ describe('SocialAccounts page', () => {
 
   test('platform change auto-unsets isPublic for private platforms', async () => {
     api.get = jest.fn().mockResolvedValue({ data: { accounts: [] } });
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => screen.getByText(/Social Accounts/i));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ add/i }));
@@ -119,7 +123,7 @@ describe('SocialAccounts page', () => {
       response: { data: { message: 'Invalid platform.' } },
     });
 
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => screen.getByText(/Social Accounts/i));
 
     fireEvent.click(screen.getByRole('button', { name: /\+ add/i }));
@@ -139,7 +143,7 @@ describe('SocialAccounts page', () => {
     });
     api.patch = jest.fn().mockResolvedValue({ data: { success: true } });
 
-    render(<SocialAccounts />);
+    renderSocialAccounts();
     await waitFor(() => screen.getByText('GitHub'));
 
     fireEvent.click(screen.getByRole('button', { name: /remove/i }));
@@ -147,6 +151,6 @@ describe('SocialAccounts page', () => {
     await waitFor(() =>
       expect(api.patch).toHaveBeenCalledWith('/api/social-accounts/acc-1/remove')
     );
-    expect(api.get).toHaveBeenCalledTimes(2); // initial load + after remove
+    expect(api.get).toHaveBeenCalledTimes(3); // user/me + initial accounts load + after remove
   });
 });

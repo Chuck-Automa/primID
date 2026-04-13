@@ -15,6 +15,9 @@ function makeAttestation(overrides = {}) {
     publicAt: null,
     revokedAt: null,
     createdAt: new Date('2024-03-01').toISOString(),
+    // issuer/subject objects are included by the API (listAttestations includes them)
+    issuer: { displayName: 'Alice Issuer', socialAccounts: [] },
+    subject: { displayName: 'Bob Subject', socialAccounts: [] },
     ...overrides,
   };
 }
@@ -74,7 +77,7 @@ describe('AttestationCard', () => {
       expect(screen.getByText(/vouches_for/)).toBeInTheDocument();
     });
 
-    test('renders issuer ID', () => {
+    test('renders issuer display name', () => {
       render(
         <AttestationCard
           attestation={makeAttestation()}
@@ -83,10 +86,10 @@ describe('AttestationCard', () => {
           onRevoke={onRevoke}
         />
       );
-      expect(screen.getByText(new RegExp(ISSUER_ID))).toBeInTheDocument();
+      expect(screen.getByText(/Alice Issuer/)).toBeInTheDocument();
     });
 
-    test('renders subject ID', () => {
+    test('renders subject display name', () => {
       render(
         <AttestationCard
           attestation={makeAttestation()}
@@ -95,7 +98,7 @@ describe('AttestationCard', () => {
           onRevoke={onRevoke}
         />
       );
-      expect(screen.getByText(new RegExp(SUBJECT_ID))).toBeInTheDocument();
+      expect(screen.getByText(/Bob Subject/)).toBeInTheDocument();
     });
   });
 
