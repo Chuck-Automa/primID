@@ -47,7 +47,7 @@ jobs:
       # code, network calls in install scripts, dependency confusion candidates.
       # Requires SOCKET_SECURITY_API_KEY secret set in GitHub repo settings.
       - name: Socket.dev supply chain scan
-        uses: nicolo-ribaudo/socket-security-action@v1
+        uses: SocketDev/action@v1
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
         with:
           api-key: ${{ secrets.SOCKET_SECURITY_API_KEY }}
@@ -90,7 +90,7 @@ jobs:
           CI: true
 
       - name: Socket.dev supply chain scan
-        uses: nicolo-ribaudo/socket-security-action@v1
+        uses: SocketDev/action@v1
         if: ${{ vars.SOCKET_ENABLED == 'true' }}
         with:
           api-key: ${{ secrets.SOCKET_SECURITY_API_KEY }}
