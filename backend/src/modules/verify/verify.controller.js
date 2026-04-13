@@ -152,19 +152,22 @@ const verifyOAuth = async (req, res, next) => {
 
     if (provider === 'google') {
       try {
-        const axios = require('axios');
-        // Validate the access token and extract sub.
-        // tokeninfo verifies the token is live and issued for our client.
-        const resp = await axios.get(
+        // Validate the access token and extract sub using Node built-in fetch.
+        // Eliminates the axios dependency from this path entirely.
+        const tokeninfoResp = await fetch(
           `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
         );
-        if (resp.data.aud !== process.env.GOOGLE_CLIENT_ID) {
-          throw new Error('Google token audience mismatch.');
+        if (!tokeninfoResp.ok) {
+          return res.status(401).json({ success: false, message: 'Invalid Google token.' });
         }
-        oauthUserId = resp.data.sub;
-        if (!oauthUserId) throw new Error('Missing sub in Google token response.');
+        const tokeninfo = await tokeninfoResp.json();
+        if (tokeninfo.aud !== process.env.GOOGLE_CLIENT_ID) {
+          return res.status(401).json({ success: false, message: 'Invalid Google token.' });
+        }
+        oauthUserId = tokeninfo.sub;
+        if (!oauthUserId) throw new Error('Missing sub in Google tokeninfo response.');
       } catch (err) {
-        if (err.response || !err.statusCode) {
+        if (!err.statusCode) {
           return res.status(401).json({ success: false, message: 'Invalid Google token.' });
         }
         throw err;
