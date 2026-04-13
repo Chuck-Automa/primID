@@ -216,20 +216,28 @@ export default function ProfileCard() {
             ) : attestations.length === 0 ? (
               <p style={{ fontSize: '13px', color: '#aaa', paddingTop: '12px' }}>No public attestations.</p>
             ) : (
-              attestations.map((a) => (
-                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid #f0f0f0' }}>
-                  <TierBadge tier={a.issuer.currentTier} size="small" />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: '13px', fontWeight: 500, margin: 0, color: '#1a1a2e' }}>{a.attestationType}</p>
-                    {a.issuer.displayName && (
-                      <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>by {a.issuer.displayName}</p>
-                    )}
+              attestations.map((a) => {
+                const revoked = !!a.revokedAt;
+                return (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: '1px solid #f0f0f0', opacity: revoked ? 0.6 : 1 }}>
+                    <TierBadge tier={a.issuer.currentTier} size="small" revoked={revoked} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '13px', fontWeight: 500, margin: 0, color: '#1a1a2e', textDecoration: revoked ? 'line-through' : 'none' }}>{a.attestationType}</p>
+                      {a.issuer.displayName && (
+                        <p style={{ fontSize: '11px', color: '#888', margin: '2px 0 0' }}>by {a.issuer.displayName}</p>
+                      )}
+                      {revoked && (
+                        <p style={{ fontSize: '11px', color: '#c0392b', margin: '2px 0 0' }}>
+                          Revoked · {new Date(a.revokedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '11px', color: '#aaa', flexShrink: 0 }}>
+                      {new Date(a.publicAt).toLocaleDateString()}
+                    </span>
                   </div>
-                  <span style={{ fontSize: '11px', color: '#aaa', flexShrink: 0 }}>
-                    {new Date(a.publicAt).toLocaleDateString()}
-                  </span>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
