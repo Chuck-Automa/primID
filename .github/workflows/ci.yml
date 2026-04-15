@@ -101,12 +101,15 @@ jobs:
 
       # @cyclonedx/cyclonedx-npm is not in frontend devDependencies (its transitive
       # deps — libxmljs2 native bindings, ajv-formats@3, picomatch@4 — conflict with
-      # existing frontend deps). Install it on-demand for SBOM generation only.
+      # existing frontend deps). Install to /tmp/sbom-tool so it never lands in the
+      # project node_modules — npm-ls would otherwise report those packages as
+      # "extraneous" (present in node_modules but not in package.json) and exit non-zero,
+      # which causes cyclonedx-npm to fail with exit code 254.
       - name: Install SBOM generator
-        run: npm install --no-save --ignore-scripts --legacy-peer-deps @cyclonedx/cyclonedx-npm@4.2.1
+        run: npm install --prefix /tmp/sbom-tool --ignore-scripts --legacy-peer-deps @cyclonedx/cyclonedx-npm@4.2.1
 
       - name: Generate SBOM
-        run: npx @cyclonedx/cyclonedx-npm --output-file sbom.json --output-format JSON
+        run: /tmp/sbom-tool/node_modules/.bin/cyclonedx-npm --output-file sbom.json --output-format JSON
 
       - name: Archive SBOM
         uses: actions/upload-artifact@v4
