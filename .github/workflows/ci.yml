@@ -105,16 +105,14 @@ jobs:
       # project node_modules — npm-ls would otherwise report those packages as
       # "extraneous" (present in node_modules but not in package.json) and exit non-zero,
       # which causes cyclonedx-npm to fail with exit code 254.
-      # npm_config_legacy_peer_deps is passed to Generate SBOM so that the npm-ls call
-      # made internally by cyclonedx-npm tolerates the react-scripts@5.0.1 peer dep
-      # conflicts (yaml, picomatch, typescript) the same way the install step does.
+      # --ignore-npm-errors tells cyclonedx-npm to tolerate the npm-ls peer dep
+      # conflicts (yaml, picomatch, typescript) produced by react-scripts@5.0.1 when
+      # installed with --legacy-peer-deps. This flag exists precisely for this case.
       - name: Install SBOM generator
         run: npm install --prefix /tmp/sbom-tool --ignore-scripts --legacy-peer-deps @cyclonedx/cyclonedx-npm@4.2.1
 
       - name: Generate SBOM
-        run: /tmp/sbom-tool/node_modules/.bin/cyclonedx-npm --output-file sbom.json --output-format JSON
-        env:
-          npm_config_legacy_peer_deps: 'true'
+        run: /tmp/sbom-tool/node_modules/.bin/cyclonedx-npm --ignore-npm-errors --output-file sbom.json --output-format JSON
 
       - name: Archive SBOM
         uses: actions/upload-artifact@v4
