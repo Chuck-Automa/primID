@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import TierBadge from '../components/TierBadge';
 import api from '../services/api';
 import { PLATFORMS } from '../data/platforms';
+import { useAuth } from '../context/AuthContext';
 
 const containerStyle = {
   padding: '76px 24px 100px',
@@ -29,6 +30,7 @@ const upgradeCardStyle = {
 export default function Profile() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { logout } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -48,9 +50,8 @@ export default function Profile() {
       .catch(() => {});
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('primid_token');
-    localStorage.removeItem('primid_user');
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import COUNTRIES, { flagEmoji } from '../data/countries';
 
 const inputStyle = {
@@ -36,6 +37,7 @@ function buildE164(dialCode, localDigits) {
 }
 
 export default function OTPForm({ onSuccess }) {
+  const { login } = useAuth();
   const [step, setStep]             = useState('phone'); // 'phone' | 'otp'
   const [countryCode, setCountryCode] = useState('US');
   const [localPhone, setLocalPhone] = useState('');
@@ -70,8 +72,7 @@ export default function OTPForm({ onSuccess }) {
     setLoading(true);
     try {
       const resp = await api.post('/api/verify/phone/confirm', { phoneNumber: fullPhone, code });
-      localStorage.setItem('primid_token', resp.data.token);
-      localStorage.setItem('primid_user', JSON.stringify(resp.data.user));
+      login(resp.data.accessToken, resp.data.user);
       onSuccess(resp.data.user);
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid or expired code.');

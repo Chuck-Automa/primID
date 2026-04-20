@@ -1,12 +1,12 @@
 const request = require('supertest');
 const app = require('../../src/app');
 const prisma = require('../../src/shared/db/prisma');
-const { generateToken } = require('../../src/shared/utils/jwt.util');
+const { generateAccessToken } = require('../../src/shared/utils/jwt.util');
 
 const USER_ID = 'user-uuid-me-test';
 
 function authHeader(userId = USER_ID, tier = 2) {
-  return { Authorization: `Bearer ${generateToken(userId, tier)}` };
+  return { Authorization: `Bearer ${generateAccessToken(userId, tier)}` };
 }
 
 function makeUser(overrides = {}) {

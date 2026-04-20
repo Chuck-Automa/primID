@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OTPForm from '../components/OTPForm';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const containerStyle = {
   minHeight: '100vh',
@@ -48,25 +49,9 @@ const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthError, setOauthError] = useState('');
-
-  useEffect(() => {
-    const token = localStorage.getItem('primid_token');
-    if (!token) return;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      if (!payload.exp || payload.exp * 1000 > Date.now()) {
-        navigate('/profile');
-      } else {
-        localStorage.removeItem('primid_token');
-        localStorage.removeItem('primid_user');
-      }
-    } catch {
-      localStorage.removeItem('primid_token');
-      localStorage.removeItem('primid_user');
-    }
-  }, [navigate]);
 
   const handleOtpSuccess = () => {
     navigate('/profile');
@@ -78,8 +63,7 @@ export default function Onboarding() {
     setOauthLoading(true);
     try {
       const resp = await api.post('/api/auth/register', { method: 'oauth', provider, token });
-      localStorage.setItem('primid_token', resp.data.token);
-      localStorage.setItem('primid_user', JSON.stringify(resp.data.user));
+      login(resp.data.accessToken, resp.data.user);
       navigate('/profile');
     } catch (err) {
       setOauthError(err.response?.data?.message || `${provider} sign-in failed.`);
@@ -90,7 +74,6 @@ export default function Onboarding() {
 
   // Initialise Google token client (scope: openid only).
   // Access token flow — no code exchange, no client secret required.
-  // Consent screen shows only "Know who you are on Google" with openid scope.
   const googleClientRef = useRef(null);
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;

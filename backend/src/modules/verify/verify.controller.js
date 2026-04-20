@@ -2,9 +2,21 @@ const prisma = require('../../shared/db/prisma');
 const { createRemoteJWKSet, jwtVerify } = require('jose');
 const { validateOtp, generateOtp, sendOtp, isOnStagingWhitelist } = require('../../shared/utils/otp.util');
 const { computeAndSaveTier } = require('../../shared/utils/computeTier');
-const { generateToken } = require('../../shared/utils/jwt.util');
+const { generateAccessToken, generateRefreshToken, hashToken } = require('../../shared/utils/jwt.util');
 const { normalizePhone, computeHmac, encrypt } = require('../../shared/utils/crypto.util');
 const features = require('../../shared/flags/features');
+
+const REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+
+function setRefreshCookie(res, rawToken) {
+  res.cookie('primid_rt', rawToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'Lax',
+    maxAge: REFRESH_TOKEN_TTL_MS,
+    path: '/api/auth',
+  });
+}
 
 // ── Phone OTP ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +69,7 @@ const initiatePhone = async (req, res, next) => {
 };
 
 // POST /api/verify/phone/confirm
+// Tier 3 only: issues a 24h access token. No refresh token.
 const confirmPhone = async (req, res, next) => {
   try {
     const { phoneNumber, code } = req.body;
@@ -93,12 +106,12 @@ const confirmPhone = async (req, res, next) => {
     });
 
     user = await computeAndSaveTier(user.id);
-    const token = generateToken(user.id, user.currentTier);
+    const accessToken = generateAccessToken(user.id, user.currentTier);
 
     return res.status(200).json({
       success: true,
       message: 'Phone verified.',
-      token,
+      accessToken,
       user: { id: user.id, currentTier: user.currentTier },
     });
   } catch (err) {
@@ -124,9 +137,8 @@ async function verifyAppleIdentityToken(token) {
     if (process.env.NODE_ENV === 'production') {
       throw Object.assign(new Error('Apple Sign In is not available.'), { statusCode: 503 });
     }
-    // Dev / staging stub — no Apple credentials configured.
-    // Hash the token so the same test token always resolves to the same stub account,
-    // and different tokens produce different accounts.
+    // Dev / staging stub — hash the token so the same test token always resolves to the
+    // same stub account, and different tokens produce different accounts.
     const crypto = require('crypto');
     const stubSub = 'apple-stub-' + crypto.createHash('sha256').update(token).digest('hex').slice(0, 16);
     return stubSub;
@@ -141,6 +153,7 @@ async function verifyAppleIdentityToken(token) {
 }
 
 // POST /api/verify/oauth  (also called from auth.controller for method=oauth)
+// Issues access token (15 min) + refresh token (90 days) for Tier 2+ users.
 const verifyOAuth = async (req, res, next) => {
   try {
     const { provider, token } = req.body;
@@ -152,8 +165,6 @@ const verifyOAuth = async (req, res, next) => {
 
     if (provider === 'google') {
       try {
-        // Validate the access token and extract sub using Node built-in fetch.
-        // Eliminates the axios dependency from this path entirely.
         const tokeninfoResp = await fetch(
           `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
         );
@@ -178,8 +189,6 @@ const verifyOAuth = async (req, res, next) => {
           if (process.env.NODE_ENV === 'production') {
             return res.status(503).json({ success: false, message: 'Apple Sign In is not available.' });
           }
-          // Dev/staging stub — use the authenticated user's ID (upgrade path) or the raw token
-          // (unauthenticated registration path) so each user resolves to their own stub sub.
           const stubSeed = req.userId || token;
           const crypto = require('crypto');
           oauthUserId = `apple-stub-${crypto.createHash('sha256').update(stubSeed).digest('hex').slice(0, 16)}`;
@@ -194,7 +203,6 @@ const verifyOAuth = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'provider must be "google" or "apple".' });
     }
 
-    // Look up user by HMAC of the provider sub — never by raw or encrypted sub.
     const subHmac      = computeHmac(oauthUserId);
     const encryptedSub = encrypt(oauthUserId);
 
@@ -204,7 +212,6 @@ const verifyOAuth = async (req, res, next) => {
 
     if (req.userId) {
       // Authenticated upgrade path (POST /api/verify/oauth from OAuthVerify page).
-      // Update the current user's row — never create a new account.
       if (existingUser && existingUser.id !== req.userId) {
         return res.status(409).json({
           success: false,
@@ -241,12 +248,22 @@ const verifyOAuth = async (req, res, next) => {
     }
 
     user = await computeAndSaveTier(user.id);
-    const jwtToken = generateToken(user.id, user.currentTier);
+
+    const accessToken  = generateAccessToken(user.id, user.currentTier);
+    const rawRefresh   = generateRefreshToken();
+    const tokenHash    = hashToken(rawRefresh);
+    const expiresAt    = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+
+    await prisma.refreshToken.create({
+      data: { userId: user.id, tokenHash, expiresAt },
+    });
+
+    setRefreshCookie(res, rawRefresh);
 
     return res.status(200).json({
       success: true,
       message: `${provider} OAuth verified.`,
-      token: jwtToken,
+      accessToken,
       user: { id: user.id, currentTier: user.currentTier },
     });
   } catch (err) {
@@ -292,4 +309,6 @@ module.exports = {
   zkEmailStub,
   pohStub,
   ecoinmterStub,
+  setRefreshCookie,
+  REFRESH_TOKEN_TTL_MS,
 };

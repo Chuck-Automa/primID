@@ -1,7 +1,7 @@
 const request = require('supertest');
 const app = require('../../src/app');
 const prisma = require('../../src/shared/db/prisma');
-const { generateToken } = require('../../src/shared/utils/jwt.util');
+const { generateAccessToken } = require('../../src/shared/utils/jwt.util');
 
 // Must be valid RFC 4122 UUIDs — express-validator's isUUID() rejects non-UUIDs.
 const ISSUER_ID  = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11';
@@ -10,7 +10,7 @@ const THIRD_ID   = 'c2eebc99-9c0b-4ef8-bb6d-6bb9bd380a33';
 const ATTEST_ID  = 'd3eebc99-9c0b-4ef8-bb6d-6bb9bd380a44';
 
 function authHeader(userId = ISSUER_ID, tier = 2) {
-  return { Authorization: `Bearer ${generateToken(userId, tier)}` };
+  return { Authorization: `Bearer ${generateAccessToken(userId, tier)}` };
 }
 
 function makeAttestation(overrides = {}) {

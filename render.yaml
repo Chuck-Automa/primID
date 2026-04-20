@@ -24,6 +24,15 @@ services:
         generateValue: true            # Render generates a secure random value
       - key: CORS_ORIGIN
         sync: false                    # Set manually in Render dashboard → frontend URL
+      # ALE encryption — generate with: openssl rand -hex 32
+      # Dev/staging: 32-byte hex key. Prod: leave blank and set ALE_KMS_KEY_ARN for KMS-derived key.
+      - key: ALE_ENCRYPTION_KEY
+        sync: false
+      - key: ALE_KMS_KEY_ARN
+        sync: false
+      # HMAC key — MUST differ from ALE_ENCRYPTION_KEY. Generate with: openssl rand -hex 32
+      - key: HMAC_SECRET
+        sync: false
       # Twilio — set in Render dashboard after Sprint 1
       - key: TWILIO_ACCOUNT_SID
         sync: false
@@ -50,7 +59,7 @@ services:
   - type: static
     name: primid-frontend
     rootDir: frontend
-    buildCommand: npm ci --ignore-scripts && npm run build
+    buildCommand: npm ci --ignore-scripts --legacy-peer-deps && npm run build
     staticPublishPath: build
     routes:
       - type: rewrite

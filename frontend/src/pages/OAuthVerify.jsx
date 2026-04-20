@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const containerStyle = {
   padding: '76px 24px 100px',
@@ -27,6 +28,7 @@ const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
 export default function OAuthVerify() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const googleClientRef = useRef(null);
@@ -36,8 +38,7 @@ export default function OAuthVerify() {
     setLoading(true);
     try {
       const resp = await api.post('/api/verify/oauth', { provider, token });
-      localStorage.setItem('primid_token', resp.data.token);
-      localStorage.setItem('primid_user', JSON.stringify(resp.data.user));
+      login(resp.data.accessToken, resp.data.user);
       navigate('/profile');
     } catch (err) {
       setError(err.response?.data?.message || `${provider} sign-in failed.`);

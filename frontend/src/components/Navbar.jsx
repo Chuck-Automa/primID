@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 const pages = [
   { path: '/profile', label: 'Profile' },
@@ -11,6 +12,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const go = (path) => {
     setOpen(false);
@@ -36,8 +38,9 @@ export default function Navbar() {
         zIndex: 200,
         boxSizing: 'border-box',
       }}>
-        <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.5px', color: '#222' }}>
-          primID
+        {/* display_name shown to the left of the hamburger; null = nothing rendered */}
+        <span style={{ fontSize: '13px', fontWeight: 600, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+          {user?.displayName || ''}
         </span>
         <button
           onClick={() => setOpen((o) => !o)}
@@ -50,6 +53,7 @@ export default function Navbar() {
             display: 'flex',
             flexDirection: 'column',
             gap: '4px',
+            flexShrink: 0,
           }}
         >
           <span style={{ display: 'block', width: '18px', height: '2px', background: '#444', borderRadius: '1px' }} />
@@ -62,9 +66,7 @@ export default function Navbar() {
         <>
           <div
             onClick={() => setOpen(false)}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 201,
-            }}
+            style={{ position: 'fixed', inset: 0, zIndex: 201 }}
           />
           <div style={{
             position: 'fixed',

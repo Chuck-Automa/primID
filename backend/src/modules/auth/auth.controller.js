@@ -1,19 +1,16 @@
 const prisma = require('../../shared/db/prisma');
 const { generateOtp, sendOtp, isOnStagingWhitelist } = require('../../shared/utils/otp.util');
 const { normalizePhone, computeHmac, encrypt } = require('../../shared/utils/crypto.util');
-const { verifyOAuthToken } = require('../verify/verify.controller');
+const { verifyOAuthToken, setRefreshCookie, REFRESH_TOKEN_TTL_MS } = require('../verify/verify.controller');
+const { generateAccessToken, generateRefreshToken, hashToken } = require('../../shared/utils/jwt.util');
+
+function getRefreshTokenFromCookies(req) {
+  const cookieHeader = req.headers.cookie || '';
+  const match = cookieHeader.match(/(?:^|;\s*)primid_rt=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
 
 // ── Register ──────────────────────────────────────────────────────────────────
-/**
- * POST /api/auth/register
- * method=otp  → normalize phone → staging whitelist check → check new user →
- *               create Ghost user → send OTP
- * method=oauth → signal new-user creation is allowed → delegate to verifyOAuthToken
- *
- * Staging access gate:
- *   OTP path:   only whitelisted numbers may register (STAGING_OTP_WHITELIST in .env).
- *   OAuth path: enforced upstream by Google Cloud Console; no backend allowlist needed.
- */
 const register = async (req, res, next) => {
   try {
     const { method, phoneNumber, provider, token } = req.body;
@@ -30,7 +27,6 @@ const register = async (req, res, next) => {
         return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: 'Please enter a valid phone number.' });
       }
 
-      // Staging whitelist check.
       if (!isOnStagingWhitelist(normalized)) {
         return res.status(403).json({
           success: false,
@@ -41,7 +37,6 @@ const register = async (req, res, next) => {
 
       const hmac = computeHmac(normalized);
 
-      // Check if user already exists — if so, redirect to login.
       const existing = await prisma.user.findUnique({ where: { phoneNumberHmac: hmac } });
       if (existing) {
         return res.status(409).json({
@@ -75,12 +70,6 @@ const register = async (req, res, next) => {
 };
 
 // ── Login ─────────────────────────────────────────────────────────────────────
-/**
- * POST /api/auth/login
- * User must already exist — no account creation on the login path.
- * method=otp  → normalize phone → confirm user exists → send OTP
- * method=oauth → delegate to verifyOAuthToken
- */
 const login = async (req, res, next) => {
   try {
     const { method, phoneNumber } = req.body;
@@ -116,7 +105,6 @@ const login = async (req, res, next) => {
     }
 
     if (method === 'oauth') {
-      // Login is account-lookup only — do not create new users on this path.
       req.body._isLoginOnly = true;
       return verifyOAuthToken(req, res, next);
     }
@@ -127,9 +115,94 @@ const login = async (req, res, next) => {
   }
 };
 
-const logout = async (req, res) => {
-  // Stateless JWT — client discards token. Endpoint exists for UX consistency.
-  return res.status(200).json({ success: true, message: 'Logged out successfully.' });
+// ── Logout ────────────────────────────────────────────────────────────────────
+// Tier 2+: revokes the refresh token cookie and clears it.
+// Tier 3:  client-side discard only — no refresh token row exists.
+const logout = async (req, res, next) => {
+  try {
+    const rawToken = getRefreshTokenFromCookies(req);
+
+    if (rawToken) {
+      const hash = hashToken(rawToken);
+      const row = await prisma.refreshToken.findUnique({ where: { tokenHash: hash } });
+      if (row && !row.revokedAt) {
+        await prisma.refreshToken.update({
+          where: { tokenHash: hash },
+          data:  { revokedAt: new Date() },
+        });
+      }
+      res.clearCookie('primid_rt', { path: '/api/auth' });
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
 };
 
-module.exports = { register, login, logout };
+// ── Refresh ───────────────────────────────────────────────────────────────────
+// Single-use refresh token rotation (Tier 2+ only).
+// Presenting an already-rotated token is a replay attack — revoke the entire
+// chain and return 401.
+const refresh = async (req, res, next) => {
+  try {
+    const rawToken = getRefreshTokenFromCookies(req);
+    if (!rawToken) {
+      return res.status(401).json({ success: false, message: 'No refresh token.' });
+    }
+
+    const hash = hashToken(rawToken);
+    const row = await prisma.refreshToken.findUnique({
+      where:   { tokenHash: hash },
+      include: { user: { select: { id: true, currentTier: true } } },
+    });
+
+    if (!row) {
+      return res.status(401).json({ success: false, message: 'Invalid refresh token.' });
+    }
+
+    if (row.rotatedAt !== null) {
+      // Replay attack — revoke all active refresh tokens for this user.
+      await prisma.refreshToken.updateMany({
+        where: { userId: row.userId, revokedAt: null },
+        data:  { revokedAt: new Date() },
+      });
+      res.clearCookie('primid_rt', { path: '/api/auth' });
+      return res.status(401).json({ success: false, code: 'REPLAY_DETECTED', message: 'Session invalidated. Please login again.' });
+    }
+
+    if (row.revokedAt !== null) {
+      res.clearCookie('primid_rt', { path: '/api/auth' });
+      return res.status(401).json({ success: false, message: 'Refresh token revoked. Please login again.' });
+    }
+
+    if (row.expiresAt < new Date()) {
+      res.clearCookie('primid_rt', { path: '/api/auth' });
+      return res.status(401).json({ success: false, message: 'Refresh token expired. Please login again.' });
+    }
+
+    // Rotate: consume old token, issue new pair.
+    const newRawToken = generateRefreshToken();
+    const newHash     = hashToken(newRawToken);
+    const expiresAt   = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+
+    const newRow = await prisma.refreshToken.create({
+      data: { userId: row.userId, tokenHash: newHash, expiresAt },
+    });
+
+    await prisma.refreshToken.update({
+      where: { id: row.id },
+      data:  { rotatedAt: new Date(), replacedBy: newRow.id },
+    });
+
+    const accessToken = generateAccessToken(row.user.id, row.user.currentTier);
+
+    setRefreshCookie(res, newRawToken);
+
+    return res.status(200).json({ success: true, accessToken });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { register, login, logout, refresh };

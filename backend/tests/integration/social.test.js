@@ -1,14 +1,14 @@
 const request = require('supertest');
 const app = require('../../src/app');
 const prisma = require('../../src/shared/db/prisma');
-const { generateToken } = require('../../src/shared/utils/jwt.util');
+const { generateAccessToken } = require('../../src/shared/utils/jwt.util');
 
 const USER_ID = 'social-user-uuid-111';
 const OTHER_USER_ID = 'social-other-uuid-222';
 const ACCOUNT_ID = 'social-acct-uuid-333';
 
 function authHeader(userId = USER_ID, tier = 3) {
-  return { Authorization: `Bearer ${generateToken(userId, tier)}` };
+  return { Authorization: `Bearer ${generateAccessToken(userId, tier)}` };
 }
 
 function makeAccount(overrides = {}) {

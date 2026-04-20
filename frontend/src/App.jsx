@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -25,6 +26,7 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
 import Onboarding from './pages/Onboarding';
 import Profile from './pages/Profile';
 import Attestations from './pages/Attestations';
@@ -35,36 +37,17 @@ import LookupResult from './pages/LookupResult';
 import ProfileCard from './pages/ProfileCard';
 import Navbar from './components/Navbar';
 
-/**
- * Returns the stored JWT only if it exists and has not expired.
- * Checks the `exp` claim in the payload — no signature verification (server handles that).
- * Clears a stale token from localStorage so the user isn't silently trapped.
- */
-function getValidToken() {
-  const token = localStorage.getItem('primid_token');
-  if (!token) return null;
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    if (payload.exp && payload.exp * 1000 < Date.now()) {
-      localStorage.removeItem('primid_token');
-      localStorage.removeItem('primid_user');
-      return null;
-    }
-    return token;
-  } catch {
-    localStorage.removeItem('primid_token');
-    localStorage.removeItem('primid_user');
-    return null;
-  }
-}
-
 function RequireAuth({ children }) {
-  if (!getValidToken()) return <Navigate to="/login" replace />;
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <div style={{ padding: '80px 24px', textAlign: 'center', color: '#888', fontSize: '14px' }}>Loading…</div>;
+  if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
 function RequireGuest({ children }) {
-  if (getValidToken()) return <Navigate to="/profile" replace />;
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (user) return <Navigate to="/profile" replace />;
   return children;
 }
 
@@ -79,23 +62,25 @@ const appStyle = {
 export default function App() {
   return (
     <ErrorBoundary>
-    <BrowserRouter>
-      <div style={appStyle}>
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<RequireGuest><Onboarding /></RequireGuest>} />
-          <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
-          <Route path="/attestations" element={<RequireAuth><Attestations /></RequireAuth>} />
-          <Route path="/social" element={<RequireAuth><SocialAccounts /></RequireAuth>} />
-          <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
-          <Route path="/lookup" element={<Lookup />} />
-          <Route path="/lookup/:platform/:handle" element={<LookupResult />} />
-          <Route path="/id/:platform/:handle" element={<ProfileCard />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
+          <div style={appStyle}>
+            <Navbar />
+            <Routes>
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/login" element={<RequireGuest><Onboarding /></RequireGuest>} />
+              <Route path="/profile" element={<RequireAuth><Profile /></RequireAuth>} />
+              <Route path="/attestations" element={<RequireAuth><Attestations /></RequireAuth>} />
+              <Route path="/social" element={<RequireAuth><SocialAccounts /></RequireAuth>} />
+              <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
+              <Route path="/lookup" element={<Lookup />} />
+              <Route path="/lookup/:platform/:handle" element={<LookupResult />} />
+              <Route path="/id/:platform/:handle" element={<ProfileCard />} />
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </div>
+        </AuthProvider>
+      </BrowserRouter>
     </ErrorBoundary>
   );
 }

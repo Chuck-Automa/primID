@@ -1,77 +1,109 @@
-const { generateToken, verifyToken } = require('../../src/shared/utils/jwt.util');
+const {
+  generateAccessToken,
+  verifyAccessToken,
+  generateRefreshToken,
+  hashToken,
+} = require('../../src/shared/utils/jwt.util');
 
-describe('JWT utilities', () => {
-  const USER_ID = 'abc-123-user-id';
+const USER_ID = 'abc-123-user-id';
 
-  describe('generateToken', () => {
-    test('returns a non-empty JWT string', () => {
-      const token = generateToken(USER_ID, 2);
-      expect(typeof token).toBe('string');
-      expect(token.split('.').length).toBe(3); // header.payload.signature
-    });
-
-    test('embeds userId and tier in payload', () => {
-      const token = generateToken(USER_ID, 2);
-      const payload = verifyToken(token);
-      expect(payload.userId).toBe(USER_ID);
-      expect(payload.tier).toBe(2);
-    });
-
-    test('tier 3 token expires in ~24 hours', () => {
-      const before = Math.floor(Date.now() / 1000);
-      const token = generateToken(USER_ID, 3);
-      const { exp, iat } = verifyToken(token);
-      const ttl = exp - iat;
-      // 24h = 86400s; allow ±60s clock skew
-      expect(ttl).toBeGreaterThanOrEqual(86340);
-      expect(ttl).toBeLessThanOrEqual(86460);
-    });
-
-    test('tier 2 token expires in ~90 days', () => {
-      const token = generateToken(USER_ID, 2);
-      const { exp, iat } = verifyToken(token);
-      const ttl = exp - iat;
-      // 90d = 7776000s; allow ±60s clock skew
-      expect(ttl).toBeGreaterThanOrEqual(7775940);
-      expect(ttl).toBeLessThanOrEqual(7776060);
-    });
-
-    test('tier 0 token expires in ~90 days (same as tier 2)', () => {
-      const token = generateToken(USER_ID, 0);
-      const { exp, iat } = verifyToken(token);
-      const ttl = exp - iat;
-      expect(ttl).toBeGreaterThanOrEqual(7775940);
-      expect(ttl).toBeLessThanOrEqual(7776060);
-    });
-
-    test('null tier token expires in ~90 days (Ghost user)', () => {
-      const token = generateToken(USER_ID, null);
-      const { exp, iat } = verifyToken(token);
-      const ttl = exp - iat;
-      expect(ttl).toBeGreaterThanOrEqual(7775940);
-      expect(ttl).toBeLessThanOrEqual(7776060);
-    });
+describe('generateAccessToken', () => {
+  test('returns a three-part JWT string', () => {
+    const token = generateAccessToken(USER_ID, 2);
+    expect(typeof token).toBe('string');
+    expect(token.split('.').length).toBe(3);
   });
 
-  describe('verifyToken', () => {
-    test('returns decoded payload for valid token', () => {
-      const token = generateToken(USER_ID, 2);
-      const payload = verifyToken(token);
-      expect(payload.userId).toBe(USER_ID);
-    });
+  test('embeds sub and current_tier in payload', () => {
+    const token = generateAccessToken(USER_ID, 2);
+    const payload = verifyAccessToken(token);
+    expect(payload.sub).toBe(USER_ID);
+    expect(payload.current_tier).toBe(2);
+  });
 
-    test('throws for an invalid (tampered) token', () => {
-      const token = generateToken(USER_ID, 2);
-      const tampered = token.slice(0, -5) + 'XXXXX';
-      expect(() => verifyToken(tampered)).toThrow();
-    });
+  test('tier 3 token expires in ~24 hours', () => {
+    const token = generateAccessToken(USER_ID, 3);
+    const { exp, iat } = verifyAccessToken(token);
+    const ttl = exp - iat;
+    expect(ttl).toBeGreaterThanOrEqual(86340);
+    expect(ttl).toBeLessThanOrEqual(86460);
+  });
 
-    test('throws for an empty string', () => {
-      expect(() => verifyToken('')).toThrow();
-    });
+  test('tier 2 token expires in ~15 minutes', () => {
+    const token = generateAccessToken(USER_ID, 2);
+    const { exp, iat } = verifyAccessToken(token);
+    const ttl = exp - iat;
+    expect(ttl).toBeGreaterThanOrEqual(840);  // 14m
+    expect(ttl).toBeLessThanOrEqual(960);     // 16m
+  });
 
-    test('throws for a completely bogus string', () => {
-      expect(() => verifyToken('not.a.jwt')).toThrow();
-    });
+  test('tier 0 token expires in ~15 minutes', () => {
+    const token = generateAccessToken(USER_ID, 0);
+    const { exp, iat } = verifyAccessToken(token);
+    const ttl = exp - iat;
+    expect(ttl).toBeGreaterThanOrEqual(840);
+    expect(ttl).toBeLessThanOrEqual(960);
+  });
+
+  test('null tier token expires in ~15 minutes (Ghost — should not normally occur)', () => {
+    const token = generateAccessToken(USER_ID, null);
+    const { exp, iat } = verifyAccessToken(token);
+    const ttl = exp - iat;
+    expect(ttl).toBeGreaterThanOrEqual(840);
+    expect(ttl).toBeLessThanOrEqual(960);
+  });
+});
+
+describe('verifyAccessToken', () => {
+  test('returns decoded payload for a valid token', () => {
+    const token = generateAccessToken(USER_ID, 2);
+    const payload = verifyAccessToken(token);
+    expect(payload.sub).toBe(USER_ID);
+    expect(payload.current_tier).toBe(2);
+  });
+
+  test('throws for a tampered token', () => {
+    const token = generateAccessToken(USER_ID, 2);
+    const tampered = token.slice(0, -5) + 'XXXXX';
+    expect(() => verifyAccessToken(tampered)).toThrow();
+  });
+
+  test('throws for an empty string', () => {
+    expect(() => verifyAccessToken('')).toThrow();
+  });
+
+  test('throws for a bogus string', () => {
+    expect(() => verifyAccessToken('not.a.jwt')).toThrow();
+  });
+});
+
+describe('generateRefreshToken', () => {
+  test('returns an 80-character hex string', () => {
+    const token = generateRefreshToken();
+    expect(typeof token).toBe('string');
+    expect(token).toHaveLength(80);
+    expect(token).toMatch(/^[0-9a-f]+$/);
+  });
+
+  test('generates unique tokens', () => {
+    const a = generateRefreshToken();
+    const b = generateRefreshToken();
+    expect(a).not.toBe(b);
+  });
+});
+
+describe('hashToken', () => {
+  test('returns a 64-character hex SHA-256 hash', () => {
+    const hash = hashToken('some-token');
+    expect(hash).toHaveLength(64);
+    expect(hash).toMatch(/^[0-9a-f]+$/);
+  });
+
+  test('is deterministic — same input produces same hash', () => {
+    expect(hashToken('abc')).toBe(hashToken('abc'));
+  });
+
+  test('different inputs produce different hashes', () => {
+    expect(hashToken('abc')).not.toBe(hashToken('def'));
   });
 });

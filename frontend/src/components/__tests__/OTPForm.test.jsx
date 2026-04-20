@@ -5,12 +5,15 @@ import OTPForm from '../OTPForm';
 jest.mock('../../services/api');
 import api from '../../services/api';
 
+jest.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ login: jest.fn() }),
+}));
+
 describe('OTPForm', () => {
   const onSuccess = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorage.clear();
   });
 
   describe('phone entry step', () => {
@@ -125,7 +128,7 @@ describe('OTPForm', () => {
       await advanceToOTPStep('5555550123');
 
       const user = { id: 'uid-1', tier: 3 };
-      api.post = jest.fn().mockResolvedValueOnce({ data: { token: 'jwt-token', user } });
+      api.post = jest.fn().mockResolvedValueOnce({ data: { accessToken: 'jwt-token', user } });
 
       fireEvent.change(screen.getByPlaceholderText(/6-digit code/i), {
         target: { value: '654321' },

@@ -1,4 +1,5 @@
 const request = require('supertest');
+const crypto = require('crypto');
 const app = require('../../src/app');
 const prisma = require('../../src/shared/db/prisma');
 
@@ -21,6 +22,21 @@ function makeUser(overrides = {}) {
   };
 }
 
+function makeRefreshTokenRow(rawToken, overrides = {}) {
+  return {
+    id: 'rt-test-1',
+    userId: 'uid-auth-test',
+    tokenHash: crypto.createHash('sha256').update(rawToken).digest('hex'),
+    issuedAt: new Date(),
+    expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    rotatedAt: null,
+    revokedAt: null,
+    replacedBy: null,
+    user: { id: 'uid-auth-test', currentTier: 2 },
+    ...overrides,
+  };
+}
+
 afterEach(() => {
   delete process.env.NODE_ENV;
   delete process.env.STAGING_OTP_WHITELIST;
@@ -32,7 +48,7 @@ afterEach(() => {
 describe('POST /api/auth/register', () => {
   describe('method=otp', () => {
     test('200 — creates ghost user and sends OTP', async () => {
-      prisma.user.findUnique.mockResolvedValueOnce(null); // no existing user
+      prisma.user.findUnique.mockResolvedValueOnce(null);
       prisma.user.create.mockResolvedValue(makeUser());
 
       const res = await request(app)
@@ -40,13 +56,11 @@ describe('POST /api/auth/register', () => {
         .send({ method: 'otp', phoneNumber: PHONE });
 
       expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.message).toMatch(/OTP sent/i);
       expect(res.body.devCode).toMatch(/^\d{6}$/);
     });
 
     test('409 — conflict when phone already exists', async () => {
-      prisma.user.findUnique.mockResolvedValueOnce(makeUser()); // existing user
+      prisma.user.findUnique.mockResolvedValueOnce(makeUser());
 
       const res = await request(app)
         .post('/api/auth/register')
@@ -58,7 +72,7 @@ describe('POST /api/auth/register', () => {
 
     test('403 DEMO_RESTRICTED — non-whitelisted number in staging', async () => {
       process.env.NODE_ENV              = 'staging';
-      process.env.STAGING_OTP_WHITELIST = '+12025550199'; // different number
+      process.env.STAGING_OTP_WHITELIST = '+12025550199';
 
       const res = await request(app)
         .post('/api/auth/register')
@@ -69,10 +83,7 @@ describe('POST /api/auth/register', () => {
     });
 
     test('400 — missing phoneNumber', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ method: 'otp' });
-
+      const res = await request(app).post('/api/auth/register').send({ method: 'otp' });
       expect(res.status).toBe(400);
     });
 
@@ -80,39 +91,40 @@ describe('POST /api/auth/register', () => {
       const res = await request(app)
         .post('/api/auth/register')
         .send({ method: 'otp', phoneNumber: '5555550101' });
-
       expect(res.status).toBe(400);
     });
   });
 
   describe('method=oauth', () => {
-    test('200 — Google OAuth registers new user', async () => {
+    test('200 — Google OAuth registers new user, returns accessToken and refresh cookie', async () => {
       process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
       global.fetch = jest.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({ sub: 'google-uid-abc', aud: TEST_GOOGLE_CLIENT_ID }),
       });
 
-      // No existing OAuth user → registration path
-      prisma.user.findUnique.mockResolvedValueOnce(null); // oauthSubHmac lookup — new user
+      prisma.user.findUnique.mockResolvedValueOnce(null);
       const upsertedUser = makeUser({ id: 'uid-oauth-new', oauthVerifiedAt: new Date() });
       prisma.user.upsert.mockResolvedValue(upsertedUser);
       prisma.user.findUniqueOrThrow.mockResolvedValue(upsertedUser);
       prisma.user.update.mockResolvedValue({ ...upsertedUser, currentTier: 2 });
+      prisma.refreshToken.create.mockResolvedValueOnce({ id: 'rt-1' });
 
       const res = await request(app)
         .post('/api/auth/register')
         .send({ method: 'oauth', provider: 'google', token: 'valid-google-token' });
 
       expect(res.status).toBe(200);
-      expect(res.body.token).toBeDefined();
+      expect(res.body.accessToken).toBeDefined();
+      const cookies = res.headers['set-cookie'];
+      expect(cookies).toBeDefined();
+      expect(cookies.some(c => c.startsWith('primid_rt='))).toBe(true);
     });
 
     test('400 — missing provider', async () => {
       const res = await request(app)
         .post('/api/auth/register')
         .send({ method: 'oauth', token: 'some-token' });
-
       expect(res.status).toBe(400);
     });
   });
@@ -120,8 +132,7 @@ describe('POST /api/auth/register', () => {
   test('400 — invalid method', async () => {
     const res = await request(app)
       .post('/api/auth/register')
-      .send({ method: 'email', email: 'x@x.com', password: 'pass' });
-
+      .send({ method: 'email', email: 'x@x.com' });
     expect(res.status).toBe(400);
   });
 });
@@ -135,12 +146,11 @@ describe('POST /api/auth/login', () => {
       .send({ method: 'otp', phoneNumber: PHONE });
 
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
     expect(res.body.devCode).toMatch(/^\d{6}$/);
   });
 
   test('404 — phone number not registered', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(null); // no existing user
+    prisma.user.findUnique.mockResolvedValueOnce(null);
 
     const res = await request(app)
       .post('/api/auth/login')
@@ -150,7 +160,7 @@ describe('POST /api/auth/login', () => {
     expect(res.body.message).toMatch(/please register/i);
   });
 
-  test('200 — OAuth login for existing user', async () => {
+  test('200 — OAuth login for existing user returns accessToken and cookie', async () => {
     process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -158,27 +168,28 @@ describe('POST /api/auth/login', () => {
     });
 
     const existingUser = makeUser({ id: 'uid-existing', oauthVerifiedAt: new Date() });
-    prisma.user.findUnique.mockResolvedValueOnce(existingUser); // found by oauthSubHmac
+    prisma.user.findUnique.mockResolvedValueOnce(existingUser);
     prisma.user.upsert.mockResolvedValue(existingUser);
     prisma.user.findUniqueOrThrow.mockResolvedValue(existingUser);
     prisma.user.update.mockResolvedValue({ ...existingUser, currentTier: 2 });
+    prisma.refreshToken.create.mockResolvedValueOnce({ id: 'rt-1' });
 
     const res = await request(app)
       .post('/api/auth/login')
       .send({ method: 'oauth', provider: 'google', token: 'valid-token' });
 
     expect(res.status).toBe(200);
-    expect(res.body.token).toBeDefined();
+    expect(res.body.accessToken).toBeDefined();
   });
 
-  test('404 — OAuth login returns 404 for unregistered account (_isLoginOnly)', async () => {
+  test('404 — OAuth login returns 404 for unregistered account', async () => {
     process.env.GOOGLE_CLIENT_ID = TEST_GOOGLE_CLIENT_ID;
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ sub: 'google-uid-unknown', aud: TEST_GOOGLE_CLIENT_ID }),
     });
 
-    prisma.user.findUnique.mockResolvedValueOnce(null); // no account
+    prisma.user.findUnique.mockResolvedValueOnce(null);
 
     const res = await request(app)
       .post('/api/auth/login')
@@ -190,9 +201,122 @@ describe('POST /api/auth/login', () => {
 });
 
 describe('POST /api/auth/logout', () => {
-  test('200 — always succeeds (stateless)', async () => {
+  test('204 — Tier 3 logout (no cookie) succeeds silently', async () => {
     const res = await request(app).post('/api/auth/logout');
+    expect(res.status).toBe(204);
+  });
+
+  test('204 — Tier 2+ logout revokes refresh token and clears cookie', async () => {
+    const rawToken = 'a'.repeat(80);
+    prisma.refreshToken.findUnique.mockResolvedValueOnce(
+      makeRefreshTokenRow(rawToken)
+    );
+    prisma.refreshToken.update.mockResolvedValueOnce({});
+
+    const res = await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', `primid_rt=${rawToken}`);
+
+    expect(res.status).toBe(204);
+    expect(prisma.refreshToken.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ revokedAt: expect.any(Date) }) })
+    );
+    const cookies = res.headers['set-cookie'];
+    expect(cookies).toBeDefined();
+    expect(cookies.some(c => c.includes('primid_rt=;'))).toBe(true);
+  });
+
+  test('204 — logout with already-revoked token still returns 204', async () => {
+    const rawToken = 'b'.repeat(80);
+    prisma.refreshToken.findUnique.mockResolvedValueOnce(
+      makeRefreshTokenRow(rawToken, { revokedAt: new Date() })
+    );
+
+    const res = await request(app)
+      .post('/api/auth/logout')
+      .set('Cookie', `primid_rt=${rawToken}`);
+
+    expect(res.status).toBe(204);
+    expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /api/auth/refresh', () => {
+  test('200 — valid refresh token returns new accessToken and rotates cookie', async () => {
+    const rawToken = 'c'.repeat(80);
+    prisma.refreshToken.findUnique.mockResolvedValueOnce(
+      makeRefreshTokenRow(rawToken)
+    );
+    prisma.refreshToken.create.mockResolvedValueOnce({ id: 'rt-new' });
+    prisma.refreshToken.update.mockResolvedValueOnce({});
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', `primid_rt=${rawToken}`);
+
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
+    expect(res.body.accessToken).toBeDefined();
+    const cookies = res.headers['set-cookie'];
+    expect(cookies).toBeDefined();
+    expect(cookies.some(c => c.startsWith('primid_rt='))).toBe(true);
+  });
+
+  test('401 — no cookie', async () => {
+    const res = await request(app).post('/api/auth/refresh');
+    expect(res.status).toBe(401);
+  });
+
+  test('401 — token not found in DB', async () => {
+    prisma.refreshToken.findUnique.mockResolvedValueOnce(null);
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', `primid_rt=${'d'.repeat(80)}`);
+
+    expect(res.status).toBe(401);
+  });
+
+  test('401 REPLAY_DETECTED — already-rotated token triggers full chain revocation', async () => {
+    const rawToken = 'e'.repeat(80);
+    prisma.refreshToken.findUnique.mockResolvedValueOnce(
+      makeRefreshTokenRow(rawToken, { rotatedAt: new Date(Date.now() - 1000) })
+    );
+    prisma.refreshToken.updateMany.mockResolvedValueOnce({});
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', `primid_rt=${rawToken}`);
+
+    expect(res.status).toBe(401);
+    expect(res.body.code).toBe('REPLAY_DETECTED');
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ revokedAt: expect.any(Date) }) })
+    );
+  });
+
+  test('401 — revoked token', async () => {
+    const rawToken = 'f'.repeat(80);
+    prisma.refreshToken.findUnique.mockResolvedValueOnce(
+      makeRefreshTokenRow(rawToken, { revokedAt: new Date(Date.now() - 1000) })
+    );
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', `primid_rt=${rawToken}`);
+
+    expect(res.status).toBe(401);
+  });
+
+  test('401 — expired token', async () => {
+    const rawToken = 'g'.repeat(80);
+    prisma.refreshToken.findUnique.mockResolvedValueOnce(
+      makeRefreshTokenRow(rawToken, { expiresAt: new Date(Date.now() - 1000) })
+    );
+
+    const res = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', `primid_rt=${rawToken}`);
+
+    expect(res.status).toBe(401);
   });
 });

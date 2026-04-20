@@ -1,4 +1,4 @@
-const { verifyToken } = require('../utils/jwt.util');
+const { verifyAccessToken } = require('../utils/jwt.util');
 
 const authenticate = async (req, res, next) => {
   try {
@@ -12,14 +12,15 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    const decoded = verifyToken(token);
-    req.userId = decoded.userId;
+    const decoded = verifyAccessToken(token);
+    req.userId = decoded.sub;
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({
         success: false,
-        message: 'Token expired. Please login again.',
+        code: 'TOKEN_EXPIRED',
+        message: 'Access token expired.',
       });
     }
     return res.status(401).json({

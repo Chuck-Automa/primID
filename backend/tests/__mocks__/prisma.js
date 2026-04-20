@@ -3,15 +3,14 @@
 // mockResolvedValue / mockResolvedValueOnce.
 
 const prisma = {
-  // $transaction: resolve all operations passed as an array.
   $transaction: jest.fn().mockResolvedValue([]),
 
   user: {
-    upsert:             jest.fn(),
-    findUnique:         jest.fn(),
-    findUniqueOrThrow:  jest.fn(),
-    update:             jest.fn(),
-    create:             jest.fn(),
+    upsert:            jest.fn(),
+    findUnique:        jest.fn(),
+    findUniqueOrThrow: jest.fn(),
+    update:            jest.fn(),
+    create:            jest.fn(),
   },
   attestation: {
     create:     jest.fn(),
@@ -32,9 +31,11 @@ const prisma = {
   socialHandleConflict: {
     create: jest.fn(),
   },
-  inviteCode: {
+  refreshToken: {
+    create:     jest.fn(),
     findUnique: jest.fn(),
     update:     jest.fn(),
+    updateMany: jest.fn(),
   },
 };
 

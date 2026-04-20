@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const jwt = require('../../../vendor/jsonwebtoken');
 
 const JWT_SECRET = () => {
@@ -5,21 +6,24 @@ const JWT_SECRET = () => {
   return process.env.JWT_SECRET;
 };
 
-/**
- * Generate a signed JWT.
- * tier === 3 → 24h expiry; tier < 3 (or null) → 90d expiry.
- */
-function generateToken(userId, tier) {
-  const expiresIn = tier === 3 ? '24h' : '90d';
-  return jwt.sign({ userId, tier }, JWT_SECRET(), { expiresIn });
+// Tier 3 gets a 24h access token with no refresh token.
+// Tier 2 and below get a 15-min access token paired with a 90-day refresh token.
+function generateAccessToken(userId, tier) {
+  const expiresIn = tier === 3 ? '24h' : '15m';
+  return jwt.sign({ sub: userId, current_tier: tier }, JWT_SECRET(), { expiresIn });
 }
 
-/**
- * Verify a JWT and return the decoded payload.
- * Throws if invalid or expired.
- */
-function verifyToken(token) {
+function verifyAccessToken(token) {
   return jwt.verify(token, JWT_SECRET());
 }
 
-module.exports = { generateToken, verifyToken };
+// Returns a 80-char hex opaque string — never stored; only its SHA-256 hash is persisted.
+function generateRefreshToken() {
+  return crypto.randomBytes(40).toString('hex');
+}
+
+function hashToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+module.exports = { generateAccessToken, verifyAccessToken, generateRefreshToken, hashToken };

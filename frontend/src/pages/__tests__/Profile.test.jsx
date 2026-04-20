@@ -6,6 +6,11 @@ import Profile from '../Profile';
 jest.mock('../../services/api');
 import api from '../../services/api';
 
+const mockLogout = jest.fn();
+jest.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ logout: mockLogout }),
+}));
+
 // useNavigate must be mocked since we're not in a real router context
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
@@ -55,7 +60,6 @@ function mockProfileGet(userOverrides = {}) {
 describe('Profile page', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorage.clear();
   });
 
   test('shows loading state initially', () => {
@@ -89,17 +93,13 @@ describe('Profile page', () => {
     expect(screen.getByText(/Member since/)).toBeInTheDocument();
   });
 
-  test('logout button clears localStorage and navigates home', async () => {
+  test('logout button calls logout and navigates to login', async () => {
     mockProfileGet();
-    localStorage.setItem('primid_token', 'test-token');
-    localStorage.setItem('primid_user', JSON.stringify({ id: 'uid-1' }));
-
     renderProfile();
     await waitFor(() => screen.getByText(/Log out/i));
     fireEvent.click(screen.getByText(/Log out/i));
 
-    expect(localStorage.getItem('primid_token')).toBeNull();
-    expect(localStorage.getItem('primid_user')).toBeNull();
+    await waitFor(() => expect(mockLogout).toHaveBeenCalled());
     expect(mockNavigate).toHaveBeenCalledWith('/login');
   });
 
