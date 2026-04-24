@@ -32,6 +32,11 @@ afterEach(() => {
   global.fetch = _originalFetch;
 });
 
+// Mocks authenticate's tombstone check (findUnique for gdprErasedAt).
+function mockAuthTombstone() {
+  prisma.user.findUnique.mockResolvedValueOnce({ gdprErasedAt: null });
+}
+
 // Signs a test access token using the updated claim names (sub, current_tier).
 function makeAuthToken(userId = 'uid-verify-test', tier = 3) {
   const jwt = require('../../vendor/jsonwebtoken');
@@ -187,6 +192,7 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
     });
 
     const user = makeUser({ id: 'uid-verify-test', oauthVerifiedAt: new Date() });
+    mockAuthTombstone();
     prisma.user.findUnique.mockResolvedValueOnce(null);
     prisma.user.update.mockResolvedValueOnce(user);
     prisma.user.findUniqueOrThrow.mockResolvedValueOnce(user);
@@ -209,6 +215,7 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
 
   test('200 — authenticated user links Apple stub (no APPLE_CLIENT_ID)', async () => {
     const user = makeUser({ id: 'uid-verify-test', oauthVerifiedAt: new Date() });
+    mockAuthTombstone();
     prisma.user.findUnique.mockResolvedValueOnce(null);
     prisma.user.update.mockResolvedValueOnce(user);
     prisma.user.findUniqueOrThrow.mockResolvedValueOnce(user);
@@ -231,6 +238,7 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
       json: () => Promise.resolve({ sub: 'google-sub-conflict', aud: TEST_GOOGLE_CLIENT_ID }),
     });
 
+    mockAuthTombstone();
     prisma.user.findUnique.mockResolvedValueOnce(makeUser({ id: 'uid-other-user' }));
 
     const res = await request(app)
@@ -248,6 +256,7 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
       json: () => Promise.resolve({ error: 'invalid_token' }),
     });
 
+    mockAuthTombstone();
     const res = await request(app)
       .post('/api/verify/oauth')
       .set('Authorization', `Bearer ${makeAuthToken()}`)
@@ -260,6 +269,7 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
     const original = process.env.NODE_ENV;
     process.env.NODE_ENV = 'production';
 
+    mockAuthTombstone();
     const res = await request(app)
       .post('/api/verify/oauth')
       .set('Authorization', `Bearer ${makeAuthToken()}`)
@@ -270,6 +280,7 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
   });
 
   test('400 — invalid provider', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .post('/api/verify/oauth')
       .set('Authorization', `Bearer ${makeAuthToken()}`)
@@ -278,6 +289,7 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
   });
 
   test('400 — missing token', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .post('/api/verify/oauth')
       .set('Authorization', `Bearer ${makeAuthToken()}`)

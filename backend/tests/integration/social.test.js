@@ -26,8 +26,14 @@ function makeAccount(overrides = {}) {
   };
 }
 
+// Mocks authenticate's tombstone check (findUnique for gdprErasedAt).
+function mockAuthTombstone() {
+  prisma.user.findUnique.mockResolvedValueOnce({ gdprErasedAt: null });
+}
+
 describe('GET /api/social-accounts', () => {
   test('200 — returns active accounts for authenticated user', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.findMany.mockResolvedValue([makeAccount()]);
 
     const res = await request(app)
@@ -41,6 +47,7 @@ describe('GET /api/social-accounts', () => {
   });
 
   test('200 — returns empty array when user has no accounts', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.findMany.mockResolvedValue([]);
 
     const res = await request(app)
@@ -59,6 +66,7 @@ describe('GET /api/social-accounts', () => {
 
 describe('POST /api/social-accounts', () => {
   test('201 — adds a valid GitHub account (no conflicts)', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.create.mockResolvedValue(makeAccount());
     prisma.socialAccount.findMany.mockResolvedValue([]); // no conflicts
 
@@ -73,6 +81,7 @@ describe('POST /api/social-accounts', () => {
   });
 
   test('201 — platform is lowercased before storage', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.create.mockResolvedValue(makeAccount({ platform: 'farcaster' }));
     prisma.socialAccount.findMany.mockResolvedValue([]);
 
@@ -89,6 +98,7 @@ describe('POST /api/social-accounts', () => {
   });
 
   test('201 — adds account and flags conflict when duplicate handle found', async () => {
+    mockAuthTombstone();
     const newAccount = makeAccount({ id: 'new-acct-id' });
     const conflictAccount = makeAccount({ id: 'conflict-acct-id', userId: OTHER_USER_ID });
 
@@ -109,6 +119,7 @@ describe('POST /api/social-accounts', () => {
   });
 
   test('400 — invalid platform is rejected', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .post('/api/social-accounts')
       .set(authHeader())
@@ -119,6 +130,7 @@ describe('POST /api/social-accounts', () => {
   });
 
   test('400 — missing platform', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .post('/api/social-accounts')
       .set(authHeader())
@@ -128,6 +140,7 @@ describe('POST /api/social-accounts', () => {
   });
 
   test('400 — missing handle', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .post('/api/social-accounts')
       .set(authHeader())
@@ -143,6 +156,7 @@ describe('POST /api/social-accounts', () => {
     ];
 
     for (const platform of platforms) {
+      mockAuthTombstone();
       prisma.socialAccount.create.mockResolvedValue(makeAccount({ platform }));
       prisma.socialAccount.findMany.mockResolvedValue([]); // no conflicts
 
@@ -166,6 +180,7 @@ describe('POST /api/social-accounts', () => {
 
 describe('PATCH /api/social-accounts/:id/remove', () => {
   test('200 — owner can soft-remove their account (sets removedAt)', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.findUnique.mockResolvedValue(makeAccount());
     prisma.socialAccount.update.mockResolvedValue(
       makeAccount({ removedAt: new Date() })
@@ -181,6 +196,7 @@ describe('PATCH /api/social-accounts/:id/remove', () => {
   });
 
   test('403 — cannot remove another user\'s account', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.findUnique.mockResolvedValue(
       makeAccount({ userId: OTHER_USER_ID })
     );
@@ -193,6 +209,7 @@ describe('PATCH /api/social-accounts/:id/remove', () => {
   });
 
   test('404 — account does not exist', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.findUnique.mockResolvedValue(null);
 
     const res = await request(app)
@@ -203,6 +220,7 @@ describe('PATCH /api/social-accounts/:id/remove', () => {
   });
 
   test('400 — already removed account returns error', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.findUnique.mockResolvedValue(
       makeAccount({ removedAt: new Date() })
     );
@@ -221,6 +239,7 @@ describe('PATCH /api/social-accounts/:id/remove', () => {
   });
 
   test('records are soft-removed (removedAt set), never hard-deleted', async () => {
+    mockAuthTombstone();
     prisma.socialAccount.findUnique.mockResolvedValue(makeAccount());
     const updateSpy = prisma.socialAccount.update.mockResolvedValue(
       makeAccount({ removedAt: new Date() })

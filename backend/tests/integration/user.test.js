@@ -32,8 +32,14 @@ function makeUser(overrides = {}) {
   };
 }
 
+// Mocks authenticate's tombstone check (findUnique for gdprErasedAt).
+function mockAuthTombstone() {
+  prisma.user.findUnique.mockResolvedValueOnce({ gdprErasedAt: null });
+}
+
 describe('GET /api/user/me', () => {
   test('200 — returns profile for authenticated user', async () => {
+    mockAuthTombstone();
     prisma.user.findUniqueOrThrow.mockResolvedValue(makeUser());
 
     const res = await request(app)
@@ -47,6 +53,7 @@ describe('GET /api/user/me', () => {
   });
 
   test('never exposes phoneNumber in response', async () => {
+    mockAuthTombstone();
     prisma.user.findUniqueOrThrow.mockResolvedValue(makeUser({ phoneNumber: '+15555551234' }));
 
     const res = await request(app)
@@ -58,6 +65,7 @@ describe('GET /api/user/me', () => {
   });
 
   test('never exposes oauthSub in response', async () => {
+    mockAuthTombstone();
     prisma.user.findUniqueOrThrow.mockResolvedValue(makeUser({ oauthSub: 'google|abc123' }));
 
     const res = await request(app)
@@ -69,6 +77,7 @@ describe('GET /api/user/me', () => {
   });
 
   test('never exposes HMAC columns in response', async () => {
+    mockAuthTombstone();
     prisma.user.findUniqueOrThrow.mockResolvedValue(makeUser());
 
     const res = await request(app)
@@ -80,6 +89,7 @@ describe('GET /api/user/me', () => {
   });
 
   test('exposes biometricEverUsed as boolean, not timestamp', async () => {
+    mockAuthTombstone();
     prisma.user.findUniqueOrThrow.mockResolvedValue(
       makeUser({ biometricLastUsedAt: new Date('2024-03-01') })
     );
@@ -93,6 +103,7 @@ describe('GET /api/user/me', () => {
   });
 
   test('biometricEverUsed is false when biometricLastUsedAt is null', async () => {
+    mockAuthTombstone();
     prisma.user.findUniqueOrThrow.mockResolvedValue(makeUser({ biometricLastUsedAt: null }));
 
     const res = await request(app)
@@ -117,6 +128,7 @@ describe('GET /api/user/me', () => {
 
 describe('PATCH /api/user/me', () => {
   test('200 — returns user for empty body (no-op in Sprint 1)', async () => {
+    mockAuthTombstone();
     prisma.user.findUniqueOrThrow.mockResolvedValue(makeUser());
 
     const res = await request(app)
@@ -129,6 +141,7 @@ describe('PATCH /api/user/me', () => {
   });
 
   test('400 — rejects attempt to update currentTier', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .patch('/api/user/me')
       .set(authHeader())
@@ -139,6 +152,7 @@ describe('PATCH /api/user/me', () => {
   });
 
   test('400 — rejects attempt to update phoneVerified', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .patch('/api/user/me')
       .set(authHeader())
@@ -148,6 +162,7 @@ describe('PATCH /api/user/me', () => {
   });
 
   test('400 — rejects attempt to update oauthProvider', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .patch('/api/user/me')
       .set(authHeader())
@@ -157,6 +172,7 @@ describe('PATCH /api/user/me', () => {
   });
 
   test('400 — rejects walletAddress update', async () => {
+    mockAuthTombstone();
     const res = await request(app)
       .patch('/api/user/me')
       .set(authHeader())

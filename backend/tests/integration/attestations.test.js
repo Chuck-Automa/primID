@@ -30,8 +30,15 @@ function makeAttestation(overrides = {}) {
 // resetAllMocks clears mockResolvedValueOnce queues (clearMocks:true only clears call history).
 beforeEach(() => jest.resetAllMocks());
 
+// Mocks authenticate's tombstone check (findUnique for gdprErasedAt).
+function mockAuthTombstone() {
+  prisma.user.findUnique.mockResolvedValueOnce({ gdprErasedAt: null });
+}
+
 // requireTier reads from DB; mock it to return the specified tier.
+// Prepends the tombstone mock so authenticate's findUnique is satisfied first.
 function mockTierCheck(tier) {
+  mockAuthTombstone();
   prisma.user.findUnique.mockResolvedValueOnce({ currentTier: tier });
 }
 
@@ -131,6 +138,7 @@ describe('POST /api/attestations', () => {
   });
 
   test('403 — Ghost user (null tier) cannot issue attestations', async () => {
+    mockAuthTombstone();
     prisma.user.findUnique.mockResolvedValueOnce({ currentTier: null });
 
     const res = await request(app)
@@ -230,6 +238,7 @@ describe('POST /api/attestations', () => {
 
 describe('GET /api/attestations', () => {
   test('200 — returns attestations for authenticated user', async () => {
+    mockAuthTombstone();
     prisma.attestation.findMany.mockResolvedValue([makeAttestation()]);
 
     const res = await request(app)
@@ -250,6 +259,7 @@ describe('GET /api/attestations', () => {
 
 describe('GET /api/attestations/:id', () => {
   test('200 — issuer can view the attestation', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
 
     const res = await request(app)
@@ -261,6 +271,7 @@ describe('GET /api/attestations/:id', () => {
   });
 
   test('200 — subject can view the attestation', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
 
     const res = await request(app)
@@ -271,6 +282,7 @@ describe('GET /api/attestations/:id', () => {
   });
 
   test('403 — unrelated user cannot view', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
 
     const res = await request(app)
@@ -281,6 +293,7 @@ describe('GET /api/attestations/:id', () => {
   });
 
   test('404 — attestation does not exist', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(null);
 
     const res = await request(app)
@@ -293,6 +306,7 @@ describe('GET /api/attestations/:id', () => {
 
 describe('PATCH /api/attestations/:id/consent', () => {
   test('200 — subject grants consent; sets consentGivenAt and publicAt', async () => {
+    mockAuthTombstone();
     const now = new Date();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation()); // no consent yet
     prisma.attestation.update.mockResolvedValue(
@@ -309,6 +323,7 @@ describe('PATCH /api/attestations/:id/consent', () => {
   });
 
   test('403 — issuer cannot grant consent (only subject can)', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
 
     const res = await request(app)
@@ -320,6 +335,7 @@ describe('PATCH /api/attestations/:id/consent', () => {
   });
 
   test('400 — consent already given', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(
       makeAttestation({ consentGivenAt: new Date() })
     );
@@ -333,6 +349,7 @@ describe('PATCH /api/attestations/:id/consent', () => {
   });
 
   test('404 — attestation not found', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(null);
 
     const res = await request(app)
@@ -345,6 +362,7 @@ describe('PATCH /api/attestations/:id/consent', () => {
 
 describe('POST /api/attestations/:id/revoke', () => {
   test('200 — issuer can revoke (sets revokedAt)', async () => {
+    mockAuthTombstone();
     const now = new Date();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
     prisma.attestation.update.mockResolvedValue(makeAttestation({ revokedAt: now }));
@@ -358,6 +376,7 @@ describe('POST /api/attestations/:id/revoke', () => {
   });
 
   test('200 — subject can also revoke', async () => {
+    mockAuthTombstone();
     const now = new Date();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
     prisma.attestation.update.mockResolvedValue(makeAttestation({ revokedAt: now }));
@@ -370,6 +389,7 @@ describe('POST /api/attestations/:id/revoke', () => {
   });
 
   test('403 — unrelated user cannot revoke', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
 
     const res = await request(app)
@@ -380,6 +400,7 @@ describe('POST /api/attestations/:id/revoke', () => {
   });
 
   test('400 — already revoked attestation returns error', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(
       makeAttestation({ revokedAt: new Date() })
     );
@@ -393,6 +414,7 @@ describe('POST /api/attestations/:id/revoke', () => {
   });
 
   test('404 — attestation not found', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(null);
 
     const res = await request(app)
@@ -403,6 +425,7 @@ describe('POST /api/attestations/:id/revoke', () => {
   });
 
   test('attestation records are never hard-deleted — revokedAt is set instead', async () => {
+    mockAuthTombstone();
     prisma.attestation.findUnique.mockResolvedValue(makeAttestation());
     const updateSpy = prisma.attestation.update.mockResolvedValue(
       makeAttestation({ revokedAt: new Date() })
