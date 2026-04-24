@@ -1,4 +1,5 @@
 const { verifyAccessToken } = require('../utils/jwt.util');
+const prisma = require('../db/prisma');
 
 const authenticate = async (req, res, next) => {
   try {
@@ -13,6 +14,23 @@ const authenticate = async (req, res, next) => {
     }
 
     const decoded = verifyAccessToken(token);
+
+    if (!decoded.sub) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token. Please login again.',
+      });
+    }
+
+    // Reject tombstoned users before any token issuance or data access.
+    const user = await prisma.user.findUnique({
+      where:  { id: decoded.sub },
+      select: { gdprErasedAt: true },
+    });
+    if (!user || user.gdprErasedAt !== null) {
+      return res.status(410).json({ success: false, code: 'ACCOUNT_ERASED', message: 'This account no longer exists.' });
+    }
+
     req.userId = decoded.sub;
     next();
   } catch (error) {
