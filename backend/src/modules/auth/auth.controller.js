@@ -131,7 +131,7 @@ const logout = async (req, res, next) => {
           data:  { revokedAt: new Date() },
         });
       }
-      res.clearCookie('primid_rt', { path: '/api/auth' });
+      res.clearCookie('primid_rt', { path: '/api/auth', sameSite: 'None', secure: process.env.NODE_ENV !== 'test' });
     }
 
     return res.status(204).send();
@@ -167,17 +167,17 @@ const refresh = async (req, res, next) => {
         where: { userId: row.userId, revokedAt: null },
         data:  { revokedAt: new Date() },
       });
-      res.clearCookie('primid_rt', { path: '/api/auth' });
+      res.clearCookie('primid_rt', { path: '/api/auth', sameSite: 'None', secure: process.env.NODE_ENV !== 'test' });
       return res.status(401).json({ success: false, code: 'REPLAY_DETECTED', message: 'Session invalidated. Please login again.' });
     }
 
     if (row.revokedAt !== null) {
-      res.clearCookie('primid_rt', { path: '/api/auth' });
+      res.clearCookie('primid_rt', { path: '/api/auth', sameSite: 'None', secure: process.env.NODE_ENV !== 'test' });
       return res.status(401).json({ success: false, message: 'Refresh token revoked. Please login again.' });
     }
 
     if (row.expiresAt < new Date()) {
-      res.clearCookie('primid_rt', { path: '/api/auth' });
+      res.clearCookie('primid_rt', { path: '/api/auth', sameSite: 'None', secure: process.env.NODE_ENV !== 'test' });
       return res.status(401).json({ success: false, message: 'Refresh token expired. Please login again.' });
     }
 

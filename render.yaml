@@ -33,13 +33,6 @@ services:
       # HMAC key — MUST differ from ALE_ENCRYPTION_KEY. Generate with: openssl rand -hex 32
       - key: HMAC_SECRET
         sync: false
-      # Twilio — set in Render dashboard after Sprint 1
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_PHONE_NUMBER
-        sync: false
       # Google OAuth
       - key: GOOGLE_CLIENT_ID
         sync: false
@@ -69,4 +62,35 @@ services:
       - key: REACT_APP_API_URL
         sync: false                   # Set to backend service URL (e.g. https://primid-backend.onrender.com)
       - key: REACT_APP_GOOGLE_CLIENT_ID
+        sync: false
+
+  # ── Social Listener (Background Worker) ────────────────────────────────────
+  # Sprint 2 — disabled by default. Set REDDIT_SOCIAL_LISTENER=true once credentials
+  # are configured. The listener shares backend Prisma/crypto code via relative imports
+  # so the build installs both backend and listener dependencies.
+  - type: worker
+    name: primid-social-listener
+    runtime: node
+    buildCommand: cd backend && npm ci --ignore-scripts && npx prisma generate && cd ../primid-social-listener && npm ci --ignore-scripts
+    startCommand: node primid-social-listener/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: primid-db
+          property: connectionString
+      - key: ALE_ENCRYPTION_KEY
+        sync: false
+      - key: ALE_KMS_KEY_ARN
+        sync: false
+      - key: HMAC_SECRET
+        sync: false
+      - key: REDDIT_SOCIAL_LISTENER
+        value: "false"                  # set to "true" once Reddit credentials are configured
+      - key: REDDIT_CLIENT_ID
+        sync: false
+      - key: REDDIT_CLIENT_SECRET
+        sync: false
+      - key: REDDIT_REFRESH_TOKEN
         sync: false

@@ -31,11 +31,13 @@ model User {
   displayName          String?   @map("display_name")               // user-set display name; null until explicitly set; max 50 chars
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
+  gdprErasedAt         DateTime? @map("gdpr_erased_at")            // null = active; non-null = erasure completed; row is a tombstone
 
-  issuedAttestations   Attestation[]   @relation("issuer")
-  receivedAttestations Attestation[]   @relation("subject")
-  socialAccounts       SocialAccount[]
-  refreshTokens        RefreshToken[]
+  issuedAttestations     Attestation[]           @relation("issuer")
+  receivedAttestations   Attestation[]           @relation("subject")
+  socialAccounts         SocialAccount[]
+  refreshTokens          RefreshToken[]
+  verificationChallenges VerificationChallenge[]
 
   @@map("users")
 }
@@ -60,17 +62,21 @@ model SocialAccount {
   id              String    @id @default(uuid())
   userId          String    @map("user_id")
   platform        String
-  handle          String
+  handle          String?                                        // ALE-encrypted ciphertext — never query directly; NULLed on erasure
+  handleHmac      String?   @map("handle_hmac")                 // HMAC lookup — all exact-match queries use this
+  handleSearch    String?   @map("handle_search")               // plaintext for prefix search and display; NULLed on erasure
   isPublic        Boolean   @default(false) @map("is_public")
   conflictFlagged Boolean   @default(false) @map("conflict_flagged")
+  verifiedAt      DateTime? @map("verified_at")                 // set by social listener on successful verification (Sprint 2)
   attestedAt      DateTime? @map("attested_at")
   createdAt       DateTime  @default(now()) @map("created_at")
-  removedAt       DateTime? @map("removed_at")                // null = active; non-null = soft-removed
+  removedAt       DateTime? @map("removed_at")                  // null = active; non-null = soft-removed
 
   user User @relation(fields: [userId], references: [id])
 
-  conflictsAsA SocialHandleConflict[] @relation("conflict_a")
-  conflictsAsB SocialHandleConflict[] @relation("conflict_b")
+  conflictsAsA           SocialHandleConflict[] @relation("conflict_a")
+  conflictsAsB           SocialHandleConflict[] @relation("conflict_b")
+  verificationChallenges VerificationChallenge[]
 
   @@map("social_accounts")
 }
@@ -78,7 +84,7 @@ model SocialAccount {
 model SocialHandleConflict {
   id               String    @id @default(uuid())
   platform         String
-  handle           String
+  handle           String?                                      // NULLed on GDPR erasure of either party's account
   socialAccountIdA String    @map("social_account_id_a")
   socialAccountIdB String    @map("social_account_id_b")
   detectedAt       DateTime  @default(now()) @map("detected_at")
@@ -104,5 +110,23 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id])
 
   @@map("refresh_tokens")
+}
+
+model VerificationChallenge {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  socialAccountId String    @map("social_account_id")
+  code            String
+  platform        String
+  expectedHandle  String    @map("expected_handle")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  expiresAt       DateTime  @map("expires_at")
+  usedAt          DateTime? @map("used_at")
+
+  user          User          @relation(fields: [userId],          references: [id])
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id])
+
+  @@index([code])
+  @@map("verification_challenges")
 }
 

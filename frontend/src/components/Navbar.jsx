@@ -101,6 +101,23 @@ export default function Navbar() {
                 {p.label}
               </button>
             ))}
+            <button
+              onClick={() => go('/delete-account')}
+              style={{
+                display: 'block',
+                width: '100%',
+                padding: '12px 16px',
+                textAlign: 'left',
+                background: 'none',
+                border: 'none',
+                borderTop: '1px solid #f0f0f0',
+                fontSize: '14px',
+                color: '#c0392b',
+                cursor: 'pointer',
+              }}
+            >
+              Delete Account
+            </button>
           </div>
         </>
       )}

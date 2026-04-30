@@ -1,9 +1,15 @@
 const prisma = require('../../shared/db/prisma');
+const { encrypt, computeHmac } = require('../../shared/utils/crypto.util');
 
 const VALID_PLATFORMS = [
   'facebook', 'x', 'signal', 'telegram', 'linkedin', 'instagram',
   'farcaster', 'nostr', 'bluesky', 'github', 'bitchat',
 ];
+
+function sanitizeAccount(account) {
+  const { handle: _h, handleHmac: _hm, handleSearch, ...rest } = account;
+  return { ...rest, handle: handleSearch };
+}
 
 // GET /api/social-accounts
 const listSocialAccounts = async (req, res, next) => {
@@ -12,7 +18,7 @@ const listSocialAccounts = async (req, res, next) => {
       where:   { userId: req.userId, removedAt: null },
       orderBy: { createdAt: 'desc' },
     });
-    return res.status(200).json({ success: true, accounts });
+    return res.status(200).json({ success: true, accounts: accounts.map(sanitizeAccount) });
   } catch (err) {
     next(err);
   }
@@ -37,23 +43,28 @@ const addSocialAccount = async (req, res, next) => {
       });
     }
 
-    // Create the new account first.
+    // Create the new account with ALE-encrypted handle.
+    const hmac       = computeHmac(handle);
+    const ciphertext = encrypt(handle);
+
     const account = await prisma.socialAccount.create({
       data: {
-        userId:   req.userId,
-        platform: normalizedPlatform,
-        handle,
-        isPublic: !!isPublic,
+        userId:       req.userId,
+        platform:     normalizedPlatform,
+        handle:       ciphertext,
+        handleHmac:   hmac,
+        handleSearch: handle,
+        isPublic:     !!isPublic,
       },
     });
 
-    // Find any OTHER active accounts with the same (platform, handle).
+    // Find any OTHER active accounts with the same (platform, handle) via HMAC.
     const conflicts = await prisma.socialAccount.findMany({
       where: {
-        platform:  normalizedPlatform,
-        handle,
-        removedAt: null,
-        id:        { not: account.id },
+        platform:   normalizedPlatform,
+        handleHmac: hmac,
+        removedAt:  null,
+        id:         { not: account.id },
       },
     });
 
@@ -87,13 +98,13 @@ const addSocialAccount = async (req, res, next) => {
       const flaggedAccount = await prisma.socialAccount.findUnique({ where: { id: account.id } });
       return res.status(201).json({
         success:          true,
-        account:          flaggedAccount,
+        account:          sanitizeAccount(flaggedAccount),
         conflictDetected: true,
         message:          'Account added. A handle conflict was detected and flagged for review.',
       });
     }
 
-    return res.status(201).json({ success: true, account });
+    return res.status(201).json({ success: true, account: sanitizeAccount(account) });
   } catch (err) {
     next(err);
   }
@@ -124,7 +135,7 @@ const removeSocialAccount = async (req, res, next) => {
       data:  { removedAt: new Date() },
     });
 
-    return res.status(200).json({ success: true, account: updated });
+    return res.status(200).json({ success: true, account: sanitizeAccount(updated) });
   } catch (err) {
     next(err);
   }

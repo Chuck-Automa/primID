@@ -36,6 +36,7 @@ import Lookup from './pages/Lookup';
 import LookupResult from './pages/LookupResult';
 import ProfileCard from './pages/ProfileCard';
 import Navbar from './components/Navbar';
+import DeleteAccount from './pages/DeleteAccount';
 
 function RequireAuth({ children }) {
   const { user, isLoading } = useAuth();
@@ -76,6 +77,7 @@ export default function App() {
               <Route path="/lookup" element={<Lookup />} />
               <Route path="/lookup/:platform/:handle" element={<LookupResult />} />
               <Route path="/id/:platform/:handle" element={<ProfileCard />} />
+              <Route path="/delete-account" element={<RequireAuth><DeleteAccount /></RequireAuth>} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </div>

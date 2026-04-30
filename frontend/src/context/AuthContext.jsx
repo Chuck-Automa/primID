@@ -27,6 +27,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await api.delete('/api/user/me');
+    clearToken();
+    setUser(null);
+  }, []);
+
   // Called after tier upgrade — refreshes user data from the server.
   const refreshUser = useCallback(async () => {
     try {
@@ -59,7 +65,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

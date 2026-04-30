@@ -1,4 +1,5 @@
 const prisma = require('../../shared/db/prisma');
+const { eraseUser } = require('../../shared/services/erasure.service');
 
 // GET /api/user/me
 const getMe = async (req, res, next) => {
@@ -91,4 +92,23 @@ const updateMe = async (req, res, next) => {
   }
 };
 
-module.exports = { getMe, updateMe };
+// DELETE /api/user/me — GDPR right to erasure
+const deleteMe = async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where:  { id: req.userId },
+      select: { gdprErasedAt: true },
+    });
+
+    if (!user || user.gdprErasedAt !== null) {
+      return res.status(410).json({ success: false, code: 'ACCOUNT_ERASED', message: 'This account no longer exists.' });
+    }
+
+    await eraseUser(req.userId);
+    return res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { getMe, updateMe, deleteMe };

@@ -11,8 +11,8 @@ const REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 function setRefreshCookie(res, rawToken) {
   res.cookie('primid_rt', rawToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'Lax',
+    secure: process.env.NODE_ENV !== 'test',
+    sameSite: 'None',
     maxAge: REFRESH_TOKEN_TTL_MS,
     path: '/api/auth',
   });

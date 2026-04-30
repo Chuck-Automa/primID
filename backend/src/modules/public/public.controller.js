@@ -1,4 +1,5 @@
 const prisma = require('../../shared/db/prisma');
+const { computeHmac } = require('../../shared/utils/crypto.util');
 
 const VALID_PLATFORMS = [
   'facebook', 'x', 'signal', 'telegram', 'linkedin', 'instagram',
@@ -42,7 +43,7 @@ const lookupHandle = async (req, res, next) => {
     }
 
     const account = await prisma.socialAccount.findFirst({
-      where: { platform, handle, removedAt: null },
+      where: { platform, handleHmac: computeHmac(handle), removedAt: null },
     });
 
     if (!account) {
@@ -109,17 +110,17 @@ const suggestHandles = async (req, res, next) => {
     const accounts = await prisma.socialAccount.findMany({
       where: {
         platform,
-        handle: { startsWith: q, mode: 'insensitive' },
+        handleSearch: { startsWith: q, mode: 'insensitive' },
         removedAt: null,
       },
-      select: { handle: true },
-      orderBy: { handle: 'asc' },
+      select:  { handleSearch: true },
+      orderBy: { handleSearch: 'asc' },
       take: 8,
     });
 
     return res.status(200).json({
-      success: true,
-      suggestions: accounts.map((a) => a.handle),
+      success:     true,
+      suggestions: accounts.map((a) => a.handleSearch),
     });
   } catch (err) {
     next(err);
@@ -136,7 +137,7 @@ const listPublicAttestations = async (req, res, next) => {
     }
 
     const account = await prisma.socialAccount.findFirst({
-      where: { platform, handle, removedAt: null },
+      where: { platform, handleHmac: computeHmac(handle), removedAt: null },
     });
 
     if (!account) {
