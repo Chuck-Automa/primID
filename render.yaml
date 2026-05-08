@@ -33,6 +33,10 @@ services:
       # HMAC key — MUST differ from ALE_ENCRYPTION_KEY. Generate with: openssl rand -hex 32
       - key: HMAC_SECRET
         sync: false
+      # Inverted phone verification — listener number shown to the user in the UI.
+      # Sprint 1: set to a placeholder (e.g. "STAGING"). Sprint 2: real Telnyx number.
+      - key: LISTENER_NUMBER
+        sync: false
       # Google OAuth
       - key: GOOGLE_CLIENT_ID
         sync: false

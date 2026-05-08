@@ -38,6 +38,7 @@ model User {
   socialAccounts         SocialAccount[]
   refreshTokens          RefreshToken[]
   verificationChallenges VerificationChallenge[]
+  phoneChallenges        PhoneChallenge[]
 
   @@map("users")
 }
@@ -110,6 +111,21 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id])
 
   @@map("refresh_tokens")
+}
+
+model PhoneChallenge {
+  id              String    @id @default(uuid())
+  userId          String    @map("user_id")
+  phoneNumberHmac String    @map("phone_number_hmac")
+  code            String
+  createdAt       DateTime  @default(now()) @map("created_at")
+  expiresAt       DateTime  @map("expires_at")
+  usedAt          DateTime? @map("used_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([phoneNumberHmac])
+  @@map("phone_challenges")
 }
 
 model VerificationChallenge {

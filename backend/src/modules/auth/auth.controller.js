@@ -1,6 +1,4 @@
 const prisma = require('../../shared/db/prisma');
-const { generateOtp, sendOtp, isOnStagingWhitelist } = require('../../shared/utils/otp.util');
-const { normalizePhone, computeHmac, encrypt } = require('../../shared/utils/crypto.util');
 const { verifyOAuthToken, setRefreshCookie, REFRESH_TOKEN_TTL_MS } = require('../verify/verify.controller');
 const { generateAccessToken, generateRefreshToken, hashToken } = require('../../shared/utils/jwt.util');
 
@@ -13,57 +11,20 @@ function getRefreshTokenFromCookies(req) {
 // ── Register ──────────────────────────────────────────────────────────────────
 const register = async (req, res, next) => {
   try {
-    const { method, phoneNumber, provider, token } = req.body;
+    const { method, provider, token } = req.body;
 
-    if (method === 'otp') {
-      if (!phoneNumber) {
-        return res.status(400).json({ success: false, message: 'phoneNumber is required.' });
-      }
-
-      let normalized;
-      try {
-        normalized = normalizePhone(phoneNumber);
-      } catch {
-        return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: 'Please enter a valid phone number.' });
-      }
-
-      if (!isOnStagingWhitelist(normalized)) {
-        return res.status(403).json({
-          success: false,
-          code:    'DEMO_RESTRICTED',
-          message: 'This number is not approved for demo access.',
-        });
-      }
-
-      const hmac = computeHmac(normalized);
-
-      const existing = await prisma.user.findUnique({ where: { phoneNumberHmac: hmac } });
-      if (existing) {
-        return res.status(409).json({
-          success: false,
-          message: 'An account with this phone number already exists. Please use /api/auth/login.',
-        });
-      }
-
-      const encrypted = encrypt(normalized);
-      await prisma.user.create({
-        data: { phoneNumber: encrypted, phoneNumberHmac: hmac },
+    if (method === 'phone') {
+      return res.status(400).json({
+        success: false,
+        message: 'Use POST /api/verify/phone/initiate to start phone verification.',
       });
-
-      const code = generateOtp();
-      const devCode = await sendOtp(normalized, code);
-
-      const response = { success: true, message: 'OTP sent. Please verify your phone number.' };
-      if (devCode) response.devCode = devCode;
-
-      return res.status(200).json(response);
     }
 
     if (method === 'oauth') {
       return verifyOAuthToken(req, res, next);
     }
 
-    return res.status(400).json({ success: false, message: 'method must be "otp" or "oauth".' });
+    return res.status(400).json({ success: false, message: 'method must be "phone" or "oauth".' });
   } catch (err) {
     next(err);
   }
@@ -72,36 +33,13 @@ const register = async (req, res, next) => {
 // ── Login ─────────────────────────────────────────────────────────────────────
 const login = async (req, res, next) => {
   try {
-    const { method, phoneNumber } = req.body;
+    const { method } = req.body;
 
-    if (method === 'otp') {
-      if (!phoneNumber) {
-        return res.status(400).json({ success: false, message: 'phoneNumber is required.' });
-      }
-
-      let normalized;
-      try {
-        normalized = normalizePhone(phoneNumber);
-      } catch {
-        return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: 'Please enter a valid phone number.' });
-      }
-
-      const hmac = computeHmac(normalized);
-      const existing = await prisma.user.findUnique({ where: { phoneNumberHmac: hmac } });
-      if (!existing) {
-        return res.status(404).json({
-          success: false,
-          message: 'No account found for this phone number. Please register first.',
-        });
-      }
-
-      const code = generateOtp();
-      const devCode = await sendOtp(normalized, code);
-
-      const response = { success: true, message: 'OTP sent.' };
-      if (devCode) response.devCode = devCode;
-
-      return res.status(200).json(response);
+    if (method === 'phone') {
+      return res.status(400).json({
+        success: false,
+        message: 'Use POST /api/verify/phone/initiate to start phone verification.',
+      });
     }
 
     if (method === 'oauth') {
@@ -109,7 +47,7 @@ const login = async (req, res, next) => {
       return verifyOAuthToken(req, res, next);
     }
 
-    return res.status(400).json({ success: false, message: 'method must be "otp" or "oauth".' });
+    return res.status(400).json({ success: false, message: 'method must be "phone" or "oauth".' });
   } catch (err) {
     next(err);
   }

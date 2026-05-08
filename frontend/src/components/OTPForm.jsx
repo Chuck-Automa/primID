@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import COUNTRIES, { flagEmoji } from '../data/countries';
@@ -26,64 +26,84 @@ const btnStyle = {
 };
 
 const PINNED = ['US', 'CA'];
-const pinnedCountries  = COUNTRIES.filter((c) => PINNED.includes(c.code));
-const restCountries    = COUNTRIES.filter((c) => !PINNED.includes(c.code));
+const pinnedCountries = COUNTRIES.filter((c) => PINNED.includes(c.code));
+const restCountries   = COUNTRIES.filter((c) => !PINNED.includes(c.code));
+
+const CHALLENGE_TTL_MS = 15 * 60 * 1000;
+const POLL_INTERVAL_MS = 2000;
 
 /** Builds a full international number from a dial code and local digits. */
 function buildE164(dialCode, localDigits) {
-  // Strip non-digits, then remove a single leading zero (trunk prefix).
   const digits = localDigits.replace(/\D/g, '').replace(/^0/, '');
   return `+${dialCode}${digits}`;
 }
 
 export default function OTPForm({ onSuccess }) {
   const { login } = useAuth();
-  const [step, setStep]             = useState('phone'); // 'phone' | 'otp'
+  const [step, setStep]               = useState('phone'); // 'phone' | 'pending'
   const [countryCode, setCountryCode] = useState('US');
-  const [localPhone, setLocalPhone] = useState('');
-  const [fullPhone, setFullPhone]   = useState(''); // E.164, set when OTP sent
-  const [code, setCode]             = useState('');
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState('');
-  const [devCode, setDevCode]       = useState('');
+  const [localPhone, setLocalPhone]   = useState('');
+  const [challengeId, setChallengeId] = useState('');
+  const [listenerNumber, setListenerNumber] = useState('');
+  const [verifyCode, setVerifyCode]   = useState('');
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState('');
+  const [copied, setCopied]           = useState(false);
 
   const selectedCountry = COUNTRIES.find((c) => c.code === countryCode) || COUNTRIES[0];
 
-  const handleSendOtp = async (e) => {
+  const handleSendCode = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
       const phoneNumber = buildE164(selectedCountry.dial, localPhone);
-      setFullPhone(phoneNumber);
       const resp = await api.post('/api/verify/phone/initiate', { phoneNumber });
-      if (resp.data.devCode) setDevCode(resp.data.devCode);
-      setStep('otp');
+      setChallengeId(resp.data.challengeId);
+      setListenerNumber(resp.data.listenerNumber);
+      setVerifyCode(resp.data.code);
+      setCopied(false);
+      setStep('pending');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP.');
+      setError(err.response?.data?.message || 'Failed to start verification.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleConfirmOtp = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const resp = await api.post('/api/verify/phone/confirm', { phoneNumber: fullPhone, code });
-      login(resp.data.accessToken, resp.data.user);
-      onSuccess(resp.data.user);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Invalid or expired code.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Poll status every POLL_INTERVAL_MS until verified or challenge expires.
+  useEffect(() => {
+    if (step !== 'pending' || !challengeId) return;
+
+    const startTime = Date.now();
+
+    const interval = setInterval(async () => {
+      if (Date.now() - startTime > CHALLENGE_TTL_MS) {
+        clearInterval(interval);
+        setError('Verification expired. Please try again.');
+        setStep('phone');
+        return;
+      }
+      try {
+        const resp = await api.get(`/api/verify/phone/status/${challengeId}`);
+        if (resp.data.verified) {
+          clearInterval(interval);
+          login(resp.data.accessToken, resp.data.user);
+          onSuccess(resp.data.user);
+        }
+      } catch {
+        clearInterval(interval);
+        setError('Verification expired. Please try again.');
+        setStep('phone');
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [step, challengeId]);
 
   if (step === 'phone') {
     return (
-      <form onSubmit={handleSendOtp}>
+      <form onSubmit={handleSendCode}>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
           <select
             value={countryCode}
@@ -123,43 +143,71 @@ export default function OTPForm({ onSuccess }) {
         </div>
         {error && <p style={{ color: '#c0392b', marginBottom: '12px', fontSize: '14px' }}>{error}</p>}
         <button style={btnStyle} type="submit" disabled={loading}>
-          {loading ? 'Sending…' : 'Send verification code'}
+          {loading ? 'Starting…' : 'Send verification code'}
         </button>
       </form>
     );
   }
 
+  // step === 'pending': show the code and wait for the user to text it.
   return (
-    <form onSubmit={handleConfirmOtp}>
-      <p style={{ marginBottom: '12px', fontSize: '14px', color: '#666' }}>
-        Code sent to {fullPhone}.{' '}
+    <div>
+      <p style={{ marginBottom: '8px', fontSize: '14px', color: '#666' }}>
+        Text the code below to <strong>{listenerNumber}</strong> from your phone:
+      </p>
+      <div style={{ position: 'relative', marginBottom: '16px' }}>
+        <p
+          style={{
+            fontFamily:    'monospace',
+            fontSize:      '28px',
+            fontWeight:    700,
+            letterSpacing: '6px',
+            background:    '#f0f4ff',
+            borderRadius:  '8px',
+            padding:       '16px 48px 16px 16px',
+            textAlign:     'center',
+            marginBottom:  0,
+            userSelect:    'all',
+          }}
+        >
+          {verifyCode}
+        </p>
         <button
           type="button"
-          style={{ background: 'none', border: 'none', color: '#457b9d', cursor: 'pointer', fontSize: '14px' }}
-          onClick={() => { setStep('phone'); setError(''); setDevCode(''); }}
+          title="Copy code"
+          onClick={() => {
+            navigator.clipboard.writeText(verifyCode).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            });
+          }}
+          style={{
+            position:   'absolute',
+            top:        '50%',
+            right:      '12px',
+            transform:  'translateY(-50%)',
+            background: 'none',
+            border:     'none',
+            cursor:     'pointer',
+            fontSize:   '16px',
+            padding:    '4px',
+            color:      copied ? '#2ecc71' : '#888',
+          }}
         >
-          Change
+          {copied ? '✓' : '⎘'}
         </button>
+      </div>
+      <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
+        Waiting for verification…
       </p>
-      {devCode && (
-        <p style={{ marginBottom: '12px', fontSize: '13px', background: '#fff3cd', padding: '8px', borderRadius: '4px' }}>
-          Dev mode — OTP: <strong>{devCode}</strong>
-        </p>
-      )}
-      <input
-        style={inputStyle}
-        type="text"
-        inputMode="numeric"
-        placeholder="6-digit code"
-        maxLength={6}
-        value={code}
-        onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-        required
-      />
       {error && <p style={{ color: '#c0392b', marginBottom: '12px', fontSize: '14px' }}>{error}</p>}
-      <button style={btnStyle} type="submit" disabled={loading}>
-        {loading ? 'Verifying…' : 'Verify'}
+      <button
+        type="button"
+        style={{ ...btnStyle, background: '#888', marginTop: '4px' }}
+        onClick={() => { setStep('phone'); setError(''); }}
+      >
+        Start over
       </button>
-    </form>
+    </div>
   );
 }

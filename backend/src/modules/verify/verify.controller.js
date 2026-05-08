@@ -1,12 +1,16 @@
 const prisma = require('../../shared/db/prisma');
 const { createRemoteJWKSet, jwtVerify } = require('jose');
-const { validateOtp, generateOtp, sendOtp, isOnStagingWhitelist } = require('../../shared/utils/otp.util');
+const { generateCode, isOnStagingWhitelist } = require('../../shared/utils/otp.util');
 const { computeAndSaveTier } = require('../../shared/utils/computeTier');
 const { generateAccessToken, generateRefreshToken, hashToken } = require('../../shared/utils/jwt.util');
 const { normalizePhone, computeHmac, encrypt } = require('../../shared/utils/crypto.util');
 const features = require('../../shared/flags/features');
 
 const REFRESH_TOKEN_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+const CHALLENGE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+// Evaluated at startup — cannot activate in prod even if env vars are present.
+const AUTO_RESOLVE_ENABLED = process.env.NODE_ENV !== 'production';
 
 function setRefreshCookie(res, rawToken) {
   res.cookie('primid_rt', rawToken, {
@@ -18,9 +22,11 @@ function setRefreshCookie(res, rawToken) {
   });
 }
 
-// ── Phone OTP ─────────────────────────────────────────────────────────────────
+// ── Phone challenge (inverted flow) ──────────────────────────────────────────
 
 // POST /api/verify/phone/initiate
+// Returns {challengeId, listenerNumber, code}. The user texts the code to the
+// listener number; the server marks usedAt when the SMS arrives. No outbound SMS.
 const initiatePhone = async (req, res, next) => {
   try {
     const { phoneNumber } = req.body;
@@ -28,7 +34,7 @@ const initiatePhone = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'phoneNumber is required.' });
     }
 
-    // E.164 normalization is the first step — always before HMAC or encryption.
+    // E.164 normalization — always before HMAC or encryption.
     let normalized;
     try {
       normalized = normalizePhone(phoneNumber);
@@ -46,71 +52,89 @@ const initiatePhone = async (req, res, next) => {
     }
 
     const hmac = computeHmac(normalized);
-    const existing = await prisma.user.findUnique({ where: { phoneNumberHmac: hmac } });
+    let user = await prisma.user.findUnique({ where: { phoneNumberHmac: hmac } });
 
-    if (!existing) {
-      // New user — create a Ghost account and proceed to OTP.
+    if (!user) {
       const encrypted = encrypt(normalized);
-      await prisma.user.create({
+      user = await prisma.user.create({
         data: { phoneNumber: encrypted, phoneNumberHmac: hmac },
       });
     }
 
-    const code = generateOtp();
-    const devCode = await sendOtp(normalized, code);
+    const code = generateCode();
+    const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
 
-    const response = { success: true, message: 'OTP sent.' };
-    if (devCode) response.devCode = devCode;
+    const challenge = await prisma.phoneChallenge.create({
+      data: { userId: user.id, phoneNumberHmac: hmac, code, expiresAt },
+    });
 
-    return res.status(200).json(response);
+    // In non-production environments, auto-resolve the challenge after a
+    // configurable delay so reviewers can complete the full UX without real SMS.
+    if (AUTO_RESOLVE_ENABLED && isOnStagingWhitelist(normalized)) {
+      const delayMs = parseInt(process.env.STAGING_PHONE_STUB_DELAY_MS) || 3000;
+      setTimeout(async () => {
+        try {
+          await prisma.phoneChallenge.updateMany({
+            where: { id: challenge.id, usedAt: null },
+            data:  { usedAt: new Date() },
+          });
+        } catch {
+          // Swallow — challenge may have expired or been consumed already.
+        }
+      }, delayMs);
+    }
+
+    return res.status(200).json({
+      success:        true,
+      challengeId:    challenge.id,
+      listenerNumber: process.env.LISTENER_NUMBER || 'STAGING',
+      code,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-// POST /api/verify/phone/confirm
-// Tier 3 only: issues a 24h access token. No refresh token.
-const confirmPhone = async (req, res, next) => {
+// GET /api/verify/phone/status/:challengeId
+// Polls whether the user has texted the code to the listener number.
+// On usedAt set: marks phone verified, computes tier, issues 24h JWT.
+const getPhoneStatus = async (req, res, next) => {
   try {
-    const { phoneNumber, code } = req.body;
-    if (!phoneNumber || !code) {
-      return res.status(400).json({ success: false, message: 'phoneNumber and code are required.' });
+    const { challengeId } = req.params;
+
+    const challenge = await prisma.phoneChallenge.findFirst({
+      where: { id: challengeId, expiresAt: { gt: new Date() } },
+    });
+
+    if (!challenge) {
+      return res.status(404).json({ success: false, message: 'Challenge not found or expired.' });
     }
 
-    let normalized;
-    try {
-      normalized = normalizePhone(phoneNumber);
-    } catch {
-      return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: 'Please enter a valid phone number.' });
+    if (!challenge.usedAt) {
+      return res.status(200).json({ success: true, verified: false });
     }
 
-    const valid = validateOtp(normalized, code);
-    if (!valid) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
+    // Challenge confirmed — mark phone verified and issue 24h token.
+    let user = await prisma.user.findUnique({ where: { id: challenge.userId } });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+    if (user.gdprErasedAt) {
+      return res.status(410).json({ success: false, message: 'Account no longer exists.' });
     }
 
-    const hmac = computeHmac(normalized);
-
-    // User must exist — created during initiate. Never create here.
-    const existingUser = await prisma.user.findUnique({ where: { phoneNumberHmac: hmac } });
-    if (!existingUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'No account found for this phone number. Please start over.',
-      });
-    }
-
-    let user = await prisma.user.update({
-      where: { phoneNumberHmac: hmac },
-      data:  { phoneVerified: true, phoneVerifiedAt: new Date() },
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data:  { phoneVerified: true, phoneVerifiedAt: user.phoneVerifiedAt ?? new Date() },
     });
 
     user = await computeAndSaveTier(user.id);
     const accessToken = generateAccessToken(user.id, user.currentTier);
 
     return res.status(200).json({
-      success: true,
-      message: 'Phone verified.',
+      success:     true,
+      verified:    true,
       accessToken,
       user: { id: user.id, currentTier: user.currentTier },
     });
@@ -302,7 +326,7 @@ const ecoinmterStub = (req, res) => {
 
 module.exports = {
   initiatePhone,
-  confirmPhone,
+  getPhoneStatus,
   verifyOAuth,
   verifyOAuthToken,
   zkPassportStub,

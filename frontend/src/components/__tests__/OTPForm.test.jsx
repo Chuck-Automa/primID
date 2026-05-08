@@ -1,12 +1,13 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import OTPForm from '../OTPForm';
 
 jest.mock('../../services/api');
 import api from '../../services/api';
 
+const mockLogin = jest.fn();
 jest.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({ login: jest.fn() }),
+  useAuth: () => ({ login: mockLogin }),
 }));
 
 describe('OTPForm', () => {
@@ -14,6 +15,7 @@ describe('OTPForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
   describe('phone entry step', () => {
@@ -29,8 +31,11 @@ describe('OTPForm', () => {
       expect(screen.getByRole('combobox').value).toBe('US');
     });
 
-    test('successful initiate moves to OTP entry step', async () => {
-      api.post = jest.fn().mockResolvedValueOnce({ data: { success: true } });
+    test('successful initiate moves to pending step showing the challenge code', async () => {
+      api.post = jest.fn().mockResolvedValueOnce({
+        data: { success: true, challengeId: 'chal-1', listenerNumber: 'STAGING', code: 'aB3xYz9Q' },
+      });
+      api.get = jest.fn().mockResolvedValue({ data: { verified: false } });
 
       render(<OTPForm onSuccess={onSuccess} />);
       fireEvent.change(screen.getByPlaceholderText(/phone number/i), {
@@ -38,39 +43,28 @@ describe('OTPForm', () => {
       });
       fireEvent.click(screen.getByRole('button', { name: /send verification code/i }));
 
-      await waitFor(() =>
-        expect(screen.getByPlaceholderText(/6-digit code/i)).toBeInTheDocument()
-      );
+      await waitFor(() => expect(screen.getByText('aB3xYz9Q')).toBeInTheDocument());
+      expect(screen.getByText(/STAGING/)).toBeInTheDocument();
     });
 
     test('builds correct E.164 number from country + local phone', async () => {
-      api.post = jest.fn().mockResolvedValueOnce({ data: { success: true } });
+      api.post = jest.fn().mockResolvedValueOnce({
+        data: { success: true, challengeId: 'chal-1', listenerNumber: 'STAGING', code: 'aB3xYz9Q' },
+      });
+      api.get = jest.fn().mockResolvedValue({ data: { verified: false } });
 
       render(<OTPForm onSuccess={onSuccess} />);
-      // Select UK (+44)
       fireEvent.change(screen.getByRole('combobox'), { target: { value: 'GB' } });
       fireEvent.change(screen.getByPlaceholderText(/phone number/i), {
-        target: { value: '07911123456' }, // local UK format with leading 0
+        target: { value: '07911123456' },
       });
       fireEvent.click(screen.getByRole('button', { name: /send verification code/i }));
 
       await waitFor(() =>
         expect(api.post).toHaveBeenCalledWith('/api/verify/phone/initiate', {
-          phoneNumber: '+447911123456', // leading 0 stripped, +44 prepended
+          phoneNumber: '+447911123456',
         })
       );
-    });
-
-    test('shows devCode hint when backend returns one', async () => {
-      api.post = jest.fn().mockResolvedValueOnce({ data: { success: true, devCode: '123456' } });
-
-      render(<OTPForm onSuccess={onSuccess} />);
-      fireEvent.change(screen.getByPlaceholderText(/phone number/i), {
-        target: { value: '5555550123' },
-      });
-      fireEvent.click(screen.getByRole('button', { name: /send verification code/i }));
-
-      await waitFor(() => expect(screen.getByText('123456')).toBeInTheDocument());
     });
 
     test('shows error message when initiate fails', async () => {
@@ -103,80 +97,96 @@ describe('OTPForm', () => {
       await waitFor(() =>
         expect(screen.getByText(/not approved for demo access/i)).toBeInTheDocument()
       );
-      expect(screen.queryByPlaceholderText(/6-digit code/i)).not.toBeInTheDocument();
+      // Still on phone step — no code display
+      expect(screen.queryByText(/waiting for verification/i)).not.toBeInTheDocument();
     });
   });
 
-  describe('OTP confirmation step', () => {
-    async function advanceToOTPStep(localNumber = '5555550123') {
-      api.post = jest.fn().mockResolvedValueOnce({ data: { success: true, devCode: '654321' } });
+  describe('pending step (polling)', () => {
+    async function advanceToPending() {
+      api.post = jest.fn().mockResolvedValueOnce({
+        data: { success: true, challengeId: 'chal-99', listenerNumber: 'STAGING', code: 'Xy7mPq2R' },
+      });
+      api.get = jest.fn().mockResolvedValue({ data: { verified: false } });
+
       render(<OTPForm onSuccess={onSuccess} />);
       fireEvent.change(screen.getByPlaceholderText(/phone number/i), {
-        target: { value: localNumber },
+        target: { value: '5555550123' },
       });
       fireEvent.click(screen.getByRole('button', { name: /send verification code/i }));
-      await waitFor(() => expect(screen.getByPlaceholderText(/6-digit code/i)).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByText('Xy7mPq2R')).toBeInTheDocument());
     }
 
-    test('shows full phone number (with country code) in confirmation message', async () => {
-      await advanceToOTPStep('5555550123');
-      // US is default (+1), so full number is +15555550123
-      expect(screen.getByText(/\+15555550123/)).toBeInTheDocument();
+    test('pending step shows code and listener number', async () => {
+      await advanceToPending();
+      expect(screen.getByText('Xy7mPq2R')).toBeInTheDocument();
+      expect(screen.getByText(/STAGING/)).toBeInTheDocument();
+      expect(screen.getByText(/waiting for verification/i)).toBeInTheDocument();
     });
 
-    test('confirm sends the E.164 number built at initiate time', async () => {
-      await advanceToOTPStep('5555550123');
-
-      const user = { id: 'uid-1', tier: 3 };
-      api.post = jest.fn().mockResolvedValueOnce({ data: { accessToken: 'jwt-token', user } });
-
-      fireEvent.change(screen.getByPlaceholderText(/6-digit code/i), {
-        target: { value: '654321' },
-      });
-      fireEvent.click(screen.getByRole('button', { name: /verify/i }));
-
-      await waitFor(() =>
-        expect(api.post).toHaveBeenCalledWith('/api/verify/phone/confirm', {
-          phoneNumber: '+15555550123',
-          code: '654321',
-        })
-      );
-      expect(onSuccess).toHaveBeenCalledWith(user);
-    });
-
-    test('shows error when OTP is invalid', async () => {
-      await advanceToOTPStep();
-
-      api.post = jest.fn().mockRejectedValueOnce({
-        response: { data: { message: 'Invalid or expired OTP.' } },
-      });
-
-      fireEvent.change(screen.getByPlaceholderText(/6-digit code/i), {
-        target: { value: '000000' },
-      });
-      fireEvent.click(screen.getByRole('button', { name: /verify/i }));
-
-      await waitFor(() =>
-        expect(screen.getByText(/invalid or expired/i)).toBeInTheDocument()
-      );
-    });
-
-    test('"Change" button returns to phone entry step', async () => {
-      await advanceToOTPStep();
-
-      fireEvent.click(screen.getByRole('button', { name: /change/i }));
-
+    test('"Start over" returns to phone entry step', async () => {
+      await advanceToPending();
+      fireEvent.click(screen.getByRole('button', { name: /start over/i }));
       expect(screen.getByPlaceholderText(/phone number/i)).toBeInTheDocument();
-      expect(screen.queryByPlaceholderText(/6-digit code/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/waiting for verification/i)).not.toBeInTheDocument();
     });
 
-    test('OTP input strips non-numeric characters', async () => {
-      await advanceToOTPStep();
+    test('polls status endpoint and calls onSuccess when verified: true', async () => {
+      jest.useFakeTimers();
 
-      const input = screen.getByPlaceholderText(/6-digit code/i);
-      fireEvent.change(input, { target: { value: 'abc12def3' } });
+      api.post = jest.fn().mockResolvedValueOnce({
+        data: { success: true, challengeId: 'chal-99', listenerNumber: 'STAGING', code: 'Xy7mPq2R' },
+      });
+      const user = { id: 'uid-1', currentTier: 3 };
+      api.get = jest.fn()
+        .mockResolvedValueOnce({ data: { verified: false } })
+        .mockResolvedValueOnce({ data: { verified: true, accessToken: 'jwt-abc', user } });
 
-      expect(input.value).toBe('123');
+      render(<OTPForm onSuccess={onSuccess} />);
+      fireEvent.change(screen.getByPlaceholderText(/phone number/i), {
+        target: { value: '5555550123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /send verification code/i }));
+
+      // Wait for pending step
+      await waitFor(() => expect(screen.getByText('Xy7mPq2R')).toBeInTheDocument());
+
+      // Advance two poll intervals
+      await act(async () => { jest.advanceTimersByTime(2000); });
+      await act(async () => { jest.advanceTimersByTime(2000); });
+
+      await waitFor(() => {
+        expect(api.get).toHaveBeenCalledWith('api/verify/phone/status/chal-99'.replace('api', '/api'));
+        expect(onSuccess).toHaveBeenCalledWith(user);
+      });
+
+      jest.useRealTimers();
+    });
+
+    test('resets to phone step and shows error on 404 from status', async () => {
+      jest.useFakeTimers();
+
+      api.post = jest.fn().mockResolvedValueOnce({
+        data: { success: true, challengeId: 'chal-99', listenerNumber: 'STAGING', code: 'Xy7mPq2R' },
+      });
+      api.get = jest.fn().mockRejectedValue({ response: { status: 404 } });
+
+      render(<OTPForm onSuccess={onSuccess} />);
+      fireEvent.change(screen.getByPlaceholderText(/phone number/i), {
+        target: { value: '5555550123' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /send verification code/i }));
+
+      await waitFor(() => expect(screen.getByText('Xy7mPq2R')).toBeInTheDocument());
+
+      await act(async () => { jest.advanceTimersByTime(2000); });
+
+      await waitFor(() => {
+        expect(screen.getByText(/verification expired/i)).toBeInTheDocument();
+        expect(screen.getByPlaceholderText(/phone number/i)).toBeInTheDocument();
+      });
+
+      jest.useRealTimers();
     });
   });
 });

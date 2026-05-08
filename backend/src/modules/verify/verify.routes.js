@@ -5,7 +5,7 @@ const { validateRequest } = require('../auth/auth.validator');
 const { authenticate } = require('../../shared/middleware/authenticate');
 const {
   initiatePhone,
-  confirmPhone,
+  getPhoneStatus,
   verifyOAuth,
   zkPassportStub,
   zkEmailStub,
@@ -15,33 +15,25 @@ const {
 
 const router = express.Router();
 
-const otpLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+const initiateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
   max: 10,
-  message: { success: false, message: 'Too many OTP attempts. Please try again later.' },
+  message: { success: false, message: 'Too many verification attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => req.body.phoneNumber || req.ip,
 });
 
-// Phone OTP — pre-check that phoneNumber starts with '+'; full validation in normalizePhone().
+// Inverted phone challenge — pre-check that phoneNumber starts with '+'; full validation in normalizePhone().
 router.post(
   '/phone/initiate',
+  initiateLimiter,
   [body('phoneNumber').matches(/^\+/).withMessage('Please enter a valid phone number.')],
   validateRequest,
   initiatePhone
 );
 
-router.post(
-  '/phone/confirm',
-  otpLimiter,
-  [
-    body('phoneNumber').matches(/^\+/).withMessage('Please enter a valid phone number.'),
-    body('code').isLength({ min: 6, max: 6 }).withMessage('OTP must be 6 digits'),
-  ],
-  validateRequest,
-  confirmPhone
-);
+router.get('/phone/status/:challengeId', getPhoneStatus);
 
 // OAuth — authenticate required; this is an upgrade path for existing users only
 router.post(
