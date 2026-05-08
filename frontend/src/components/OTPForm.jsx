@@ -197,6 +197,27 @@ export default function OTPForm({ onSuccess }) {
           {copied ? '✓' : '⎘'}
         </button>
       </div>
+      <a
+        href={`sms:${listenerNumber}?body=${encodeURIComponent(verifyCode)}`}
+        style={{
+          display:        'block',
+          width:          '100%',
+          padding:        '14px',
+          fontSize:       '16px',
+          fontWeight:     600,
+          background:     '#1a1a2e',
+          color:          '#fff',
+          border:         'none',
+          borderRadius:   '8px',
+          cursor:         'pointer',
+          textAlign:      'center',
+          textDecoration: 'none',
+          boxSizing:      'border-box',
+          marginBottom:   '8px',
+        }}
+      >
+        Open Messages
+      </a>
       <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
         Waiting for verification…
       </p>

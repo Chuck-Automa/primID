@@ -4,12 +4,12 @@ const { body, validationResult } = require('express-validator');
 // Full E.164 validation (libphonenumber-js) happens in the controller via normalizePhone().
 const registerValidation = [
   body('method')
-    .isIn(['otp', 'oauth'])
-    .withMessage('method must be "otp" or "oauth"'),
+    .isIn(['phone', 'oauth'])
+    .withMessage('method must be "phone" or "oauth"'),
   body('phoneNumber')
-    .if(body('method').equals('otp'))
+    .if(body('method').equals('phone'))
     .notEmpty()
-    .withMessage('phoneNumber is required for OTP')
+    .withMessage('phoneNumber is required')
     .bail()
     .matches(/^\+/)
     .withMessage('Please enter a valid phone number.'),

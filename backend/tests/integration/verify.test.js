@@ -26,8 +26,7 @@ function makeUser(overrides = {}) {
 
 afterEach(() => {
   delete process.env.NODE_ENV;
-  delete process.env.STAGING_OTP_WHITELIST;
-  delete process.env.STAGING_OTP_FIXED_CODE;
+  delete process.env.STAGING_PHONE_WHITELIST;
   delete process.env.GOOGLE_CLIENT_ID;
   global.fetch = _originalFetch;
 });
@@ -48,8 +47,9 @@ function makeAuthToken(userId = 'uid-verify-test', tier = 3) {
 }
 
 describe('POST /api/verify/phone/initiate', () => {
-  test('200 — existing user, sends OTP and returns devCode', async () => {
+  test('200 — existing user receives challengeId, listenerNumber, and code', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUser());
+    prisma.phoneChallenge.create.mockResolvedValueOnce({ id: 'challenge-1' });
 
     const res = await request(app)
       .post('/api/verify/phone/initiate')
@@ -57,25 +57,29 @@ describe('POST /api/verify/phone/initiate', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.devCode).toMatch(/^\d{6}$/);
+    expect(res.body.challengeId).toBe('challenge-1');
+    expect(res.body.listenerNumber).toBeDefined();
+    expect(res.body.code).toMatch(/^[A-Za-z0-9]{8}$/);
   });
 
-  test('200 — new user is created automatically and OTP sent', async () => {
+  test('200 — new user is created automatically and challenge issued', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(null);
     prisma.user.create.mockResolvedValueOnce(makeUser());
+    prisma.phoneChallenge.create.mockResolvedValueOnce({ id: 'challenge-2' });
 
     const res = await request(app)
       .post('/api/verify/phone/initiate')
       .send({ phoneNumber: PHONE });
 
     expect(res.status).toBe(200);
-    expect(res.body.devCode).toMatch(/^\d{6}$/);
+    expect(res.body.challengeId).toBe('challenge-2');
+    expect(res.body.code).toMatch(/^[A-Za-z0-9]{8}$/);
     expect(prisma.user.create).toHaveBeenCalledTimes(1);
   });
 
   test('403 DEMO_RESTRICTED — non-whitelisted number in staging', async () => {
-    process.env.NODE_ENV              = 'staging';
-    process.env.STAGING_OTP_WHITELIST = '+12025550101';
+    process.env.NODE_ENV               = 'staging';
+    process.env.STAGING_PHONE_WHITELIST = '+12025550101';
 
     const res = await request(app)
       .post('/api/verify/phone/initiate')
@@ -85,20 +89,21 @@ describe('POST /api/verify/phone/initiate', () => {
     expect(res.body.code).toBe('DEMO_RESTRICTED');
   });
 
-  test('200 — whitelisted number in staging gets fixed OTP (devCode not returned)', async () => {
+  test('200 — whitelisted number in staging receives code (auto-resolve queued)', async () => {
     const WHITELISTED = '+12025550101';
-    process.env.NODE_ENV               = 'staging';
-    process.env.STAGING_OTP_WHITELIST  = WHITELISTED;
-    process.env.STAGING_OTP_FIXED_CODE = '123456';
+    process.env.NODE_ENV                = 'staging';
+    process.env.STAGING_PHONE_WHITELIST = WHITELISTED;
 
     prisma.user.findUnique.mockResolvedValueOnce(makeUser({ phoneNumber: `enc::${WHITELISTED}` }));
+    prisma.phoneChallenge.create.mockResolvedValueOnce({ id: 'challenge-staging' });
 
     const res = await request(app)
       .post('/api/verify/phone/initiate')
       .send({ phoneNumber: WHITELISTED });
 
     expect(res.status).toBe(200);
-    expect(res.body.devCode).toBeUndefined();
+    expect(res.body.challengeId).toBe('challenge-staging');
+    expect(res.body.code).toMatch(/^[A-Za-z0-9]{8}$/);
   });
 
   test('400 — missing phoneNumber', async () => {
@@ -114,72 +119,45 @@ describe('POST /api/verify/phone/initiate', () => {
   });
 });
 
-describe('POST /api/verify/phone/confirm', () => {
-  test('200 — valid OTP issues accessToken and returns Tier 3 user', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(makeUser());
-    const initRes = await request(app)
-      .post('/api/verify/phone/initiate')
-      .send({ phoneNumber: PHONE });
-    const { devCode } = initRes.body;
+describe('GET /api/verify/phone/status/:challengeId', () => {
+  test('200 {verified:false} — challenge exists but user has not texted yet', async () => {
+    prisma.phoneChallenge.findFirst.mockResolvedValueOnce({
+      id: 'ch-pending', userId: 'uid-verify-test', usedAt: null,
+    });
 
-    const verifiedUser = makeUser({ phoneVerified: true, phoneVerifiedAt: new Date() });
-    prisma.user.findUnique.mockResolvedValueOnce(verifiedUser);
-    prisma.user.update
-      .mockResolvedValueOnce(verifiedUser)
-      .mockResolvedValueOnce({ ...verifiedUser, currentTier: 3 });
-    prisma.user.findUniqueOrThrow.mockResolvedValue({ ...verifiedUser, currentTier: 3 });
-
-    const res = await request(app)
-      .post('/api/verify/phone/confirm')
-      .send({ phoneNumber: PHONE, code: devCode });
+    const res = await request(app).get('/api/verify/phone/status/ch-pending');
 
     expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.verified).toBe(false);
+  });
+
+  test('200 {verified:true} — confirmed challenge issues 24h access token, no refresh cookie', async () => {
+    const verifiedUser = makeUser({ phoneVerified: true, phoneVerifiedAt: new Date() });
+
+    prisma.phoneChallenge.findFirst.mockResolvedValueOnce({
+      id: 'ch-done', userId: verifiedUser.id, usedAt: new Date(),
+    });
+    prisma.user.findUnique.mockResolvedValueOnce(verifiedUser);
+    prisma.user.update.mockResolvedValueOnce({ ...verifiedUser, phoneVerified: true });
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({ ...verifiedUser, phoneVerified: true });
+    prisma.user.update.mockResolvedValueOnce({ ...verifiedUser, currentTier: 3 });
+
+    const res = await request(app).get('/api/verify/phone/status/ch-done');
+
+    expect(res.status).toBe(200);
+    expect(res.body.verified).toBe(true);
     expect(res.body.accessToken).toBeDefined();
     expect(res.body.user.currentTier).toBe(3);
-    // No refresh token cookie for Tier 3
     expect(res.headers['set-cookie']).toBeUndefined();
   });
 
-  test('404 — confirm with phone number that has no account', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(makeUser());
-    const initRes = await request(app)
-      .post('/api/verify/phone/initiate')
-      .send({ phoneNumber: PHONE });
-    const { devCode } = initRes.body;
+  test('404 — challenge not found or expired', async () => {
+    prisma.phoneChallenge.findFirst.mockResolvedValueOnce(null);
 
-    prisma.user.findUnique.mockResolvedValueOnce(null);
-
-    const res = await request(app)
-      .post('/api/verify/phone/confirm')
-      .send({ phoneNumber: PHONE, code: devCode });
+    const res = await request(app).get('/api/verify/phone/status/nonexistent');
 
     expect(res.status).toBe(404);
-  });
-
-  test('400 — invalid OTP code', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(makeUser());
-    await request(app).post('/api/verify/phone/initiate').send({ phoneNumber: PHONE });
-
-    const res = await request(app)
-      .post('/api/verify/phone/confirm')
-      .send({ phoneNumber: PHONE, code: '000000' });
-
-    expect(res.status).toBe(400);
-    expect(res.body.message).toMatch(/invalid or expired/i);
-  });
-
-  test('400 — missing code field', async () => {
-    const res = await request(app)
-      .post('/api/verify/phone/confirm')
-      .send({ phoneNumber: PHONE });
-    expect(res.status).toBe(400);
-  });
-
-  test('400 — missing phoneNumber field', async () => {
-    const res = await request(app)
-      .post('/api/verify/phone/confirm')
-      .send({ code: '123456' });
-    expect(res.status).toBe(400);
   });
 });
 

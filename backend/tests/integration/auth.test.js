@@ -39,59 +39,20 @@ function makeRefreshTokenRow(rawToken, overrides = {}) {
 
 afterEach(() => {
   delete process.env.NODE_ENV;
-  delete process.env.STAGING_OTP_WHITELIST;
-  delete process.env.STAGING_OTP_FIXED_CODE;
+  delete process.env.STAGING_PHONE_WHITELIST;
   delete process.env.GOOGLE_CLIENT_ID;
   global.fetch = _originalFetch;
 });
 
 describe('POST /api/auth/register', () => {
-  describe('method=otp', () => {
-    test('200 — creates ghost user and sends OTP', async () => {
-      prisma.user.findUnique.mockResolvedValueOnce(null);
-      prisma.user.create.mockResolvedValue(makeUser());
-
+  describe('method=phone', () => {
+    test('400 — redirects to /api/verify/phone/initiate', async () => {
       const res = await request(app)
         .post('/api/auth/register')
-        .send({ method: 'otp', phoneNumber: PHONE });
+        .send({ method: 'phone', phoneNumber: PHONE });
 
-      expect(res.status).toBe(200);
-      expect(res.body.devCode).toMatch(/^\d{6}$/);
-    });
-
-    test('409 — conflict when phone already exists', async () => {
-      prisma.user.findUnique.mockResolvedValueOnce(makeUser());
-
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ method: 'otp', phoneNumber: PHONE });
-
-      expect(res.status).toBe(409);
-      expect(res.body.message).toMatch(/already exists/i);
-    });
-
-    test('403 DEMO_RESTRICTED — non-whitelisted number in staging', async () => {
-      process.env.NODE_ENV              = 'staging';
-      process.env.STAGING_OTP_WHITELIST = '+12025550199';
-
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ method: 'otp', phoneNumber: PHONE });
-
-      expect(res.status).toBe(403);
-      expect(res.body.code).toBe('DEMO_RESTRICTED');
-    });
-
-    test('400 — missing phoneNumber', async () => {
-      const res = await request(app).post('/api/auth/register').send({ method: 'otp' });
       expect(res.status).toBe(400);
-    });
-
-    test('400 — phone number missing + prefix (not E.164)', async () => {
-      const res = await request(app)
-        .post('/api/auth/register')
-        .send({ method: 'otp', phoneNumber: '5555550101' });
-      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/verify\/phone\/initiate/i);
     });
   });
 
@@ -138,26 +99,13 @@ describe('POST /api/auth/register', () => {
 });
 
 describe('POST /api/auth/login', () => {
-  test('200 — sends OTP to existing user', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(makeUser({ phoneVerified: true }));
-
+  test('400 — method=phone redirects to /api/verify/phone/initiate', async () => {
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ method: 'otp', phoneNumber: PHONE });
+      .send({ method: 'phone', phoneNumber: PHONE });
 
-    expect(res.status).toBe(200);
-    expect(res.body.devCode).toMatch(/^\d{6}$/);
-  });
-
-  test('404 — phone number not registered', async () => {
-    prisma.user.findUnique.mockResolvedValueOnce(null);
-
-    const res = await request(app)
-      .post('/api/auth/login')
-      .send({ method: 'otp', phoneNumber: PHONE });
-
-    expect(res.status).toBe(404);
-    expect(res.body.message).toMatch(/please register/i);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/verify\/phone\/initiate/i);
   });
 
   test('200 — OAuth login for existing user returns accessToken and cookie', async () => {

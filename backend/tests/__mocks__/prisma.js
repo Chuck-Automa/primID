@@ -37,6 +37,11 @@ const prisma = {
     update:     jest.fn(),
     updateMany: jest.fn(),
   },
+  phoneChallenge: {
+    create:     jest.fn(),
+    findFirst:  jest.fn(),
+    updateMany: jest.fn(),
+  },
 };
 
 module.exports = prisma;
