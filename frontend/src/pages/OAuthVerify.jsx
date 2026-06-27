@@ -101,7 +101,7 @@ export default function OAuthVerify() {
         <ul style={{ fontSize: '13px', color: '#555', paddingLeft: '16px', lineHeight: 1.8, margin: 0 }}>
           <li>Session extended to 90 days</li>
           <li>Ability to issue attestations</li>
-          <li>Pathway to Tier 1 via ZK proofs</li>
+          <li>Pathway to Tier 1 via qualifying verifications</li>
         </ul>
       </div>
 

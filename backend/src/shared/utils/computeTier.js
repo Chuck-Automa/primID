@@ -9,7 +9,7 @@ function computeTierFromUser(user) {
     user.zkPassportVerified,
     user.zkEmailVerified,
     user.pohVerified,
-    user.ecoinmterVerified,
+    user.ecointerVerified,
   ].filter(Boolean).length;
 
   if (zkCount >= 2) return 0;

@@ -16,7 +16,7 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));
 
 // Chrome Private Network Access
 app.use((req, res, next) => {

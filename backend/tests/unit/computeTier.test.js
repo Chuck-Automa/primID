@@ -7,7 +7,7 @@ describe('computeTierFromUser', () => {
     zkPassportVerified: false,
     zkEmailVerified: false,
     pohVerified: false,
-    ecoinmterVerified: false,
+    ecointerVerified: false,
     oauthVerifiedAt: null,
     phoneVerified: false,
   };
@@ -41,8 +41,8 @@ describe('computeTierFromUser', () => {
     expect(computeTierFromUser({ ...base, pohVerified: true })).toBe(1);
   });
 
-  test('returns 1 when exactly 1 ZK proof is verified (ecoinmter)', () => {
-    expect(computeTierFromUser({ ...base, ecoinmterVerified: true })).toBe(1);
+  test('returns 1 when exactly 1 ZK proof is verified (ecointer)', () => {
+    expect(computeTierFromUser({ ...base, ecointerVerified: true })).toBe(1);
   });
 
   test('returns 0 when exactly 2 ZK proofs are verified', () => {
@@ -62,7 +62,7 @@ describe('computeTierFromUser', () => {
         zkPassportVerified: true,
         zkEmailVerified: true,
         pohVerified: true,
-        ecoinmterVerified: true,
+        ecointerVerified: true,
       })
     ).toBe(0);
   });
@@ -90,7 +90,7 @@ describe('computeTierFromUser', () => {
     ).toBe(0);
   });
 
-  test('any 2 distinct protocols from the pool qualify for Tier 0 (poh + ecoinmter)', () => {
-    expect(computeTierFromUser({ ...base, pohVerified: true, ecoinmterVerified: true })).toBe(0);
+  test('any 2 distinct protocols from the pool qualify for Tier 0 (poh + ecointer)', () => {
+    expect(computeTierFromUser({ ...base, pohVerified: true, ecointerVerified: true })).toBe(0);
   });
 });

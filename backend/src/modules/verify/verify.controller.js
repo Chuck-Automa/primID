@@ -318,9 +318,9 @@ const pohStub = (req, res) => {
   }
 };
 
-const ecoinmterStub = (req, res) => {
-  if (!features.ECOINMTER) {
-    return res.status(501).json({ success: false, message: 'Ecoinmter verification not available in Sprint 1.' });
+const ecointerStub = (req, res) => {
+  if (!features.ECOINTER) {
+    return res.status(501).json({ success: false, message: 'Ecointer verification not available in Sprint 1.' });
   }
 };
 
@@ -332,7 +332,7 @@ module.exports = {
   zkPassportStub,
   zkEmailStub,
   pohStub,
-  ecoinmterStub,
+  ecointerStub,
   setRefreshCookie,
   REFRESH_TOKEN_TTL_MS,
 };

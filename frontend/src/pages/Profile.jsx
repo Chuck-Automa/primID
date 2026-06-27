@@ -205,16 +205,16 @@ export default function Profile() {
             symbol: '◑',
             color: '#2d6a4f',
             name: 'Single CVA',
-            description: 'zkPassport, zkEmail, PoH, or Ecoinmter',
-            completed: user.zkPassportVerified || user.zkEmailVerified || user.pohVerified || user.ecoinmterVerified,
-            date: user.zkPassportVerifiedAt || user.zkEmailVerifiedAt || user.pohVerifiedAt || user.ecoinmterVerifiedAt,
+            description: 'One qualifying verification (QV)',
+            completed: user.zkPassportVerified || user.zkEmailVerified || user.pohVerified || user.ecointerVerified,
+            date: user.zkPassportVerifiedAt || user.zkEmailVerifiedAt || user.pohVerifiedAt || user.ecointerVerifiedAt,
           },
           {
             tier: 0,
             symbol: '●',
             color: '#1a1a2e',
             name: 'Full Personhood',
-            description: 'Any two ZK proofs from the pool',
+            description: 'Two qualifying verifications (QVs)',
             completed: user.currentTier === 0,
             date: null,
           },
@@ -276,18 +276,18 @@ export default function Profile() {
 
           {user.currentTier >= 2 && (
             <div style={upgradeCardStyle}>
-              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 1 — Add a ZK proof</p>
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 1 — Add a qualifying verification</p>
               <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
-                Connect zkPassport, zkEmail, Proof of Humanity, or Ecoinmter to reach Tier 1. (Available in Sprint 2)
+                Complete one qualifying verification (QV) to reach Tier 1. (Available in Sprint 2)
               </p>
             </div>
           )}
 
           {(user.currentTier === 1) && (
             <div style={upgradeCardStyle}>
-              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 0 — Add a second ZK proof</p>
+              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 0 — Add a second qualifying verification</p>
               <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
-                Any two verifications from the pool of four protocols qualifies you for Full Personhood. (Available in Sprint 2)
+                Two qualifying verifications (QVs) earn Full Personhood. (Available in Sprint 2)
               </p>
             </div>
           )}

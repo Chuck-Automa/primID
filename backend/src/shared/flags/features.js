@@ -2,7 +2,7 @@ module.exports = {
   ZK_PASSPORT: false,
   ZK_EMAIL: false,
   POH: false,
-  ECOINMTER: false,
+  ECOINTER: false,
   PRIVY: false,
   FARCASTER_HUB: false,
   EAS: false,

@@ -10,7 +10,7 @@ const {
   zkPassportStub,
   zkEmailStub,
   pohStub,
-  ecoinmterStub,
+  ecointerStub,
 } = require('./verify.controller');
 
 const router = express.Router();
@@ -47,10 +47,10 @@ router.post(
   verifyOAuth
 );
 
-// Sprint 2 stubs
-router.post('/zkpassport', zkPassportStub);
-router.post('/zkemail', zkEmailStub);
-router.post('/poh', pohStub);
-router.post('/ecoinmter', ecoinmterStub);
+// Sprint 2 stubs — QV endpoints namespaced under /qv/
+router.post('/qv/zkpassport', zkPassportStub);
+router.post('/qv/zkemail', zkEmailStub);
+router.post('/qv/poh', pohStub);
+router.post('/qv/ecointer', ecointerStub);
 
 module.exports = router;

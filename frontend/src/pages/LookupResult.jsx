@@ -12,7 +12,7 @@ const EVENT_LABELS = {
   zk_passport_verified: 'zkPassport proof verified',
   zk_email_verified:    'zkEmail proof verified',
   poh_verified:         'Proof of Humanity verified',
-  ecoinmter_verified:   'Ecoinmter in-person verified',
+  ecointer_verified:   'Ecointer in-person verified',
 };
 
 const TIER_NAMES = {

@@ -16,7 +16,7 @@ function makeUser(overrides = {}) {
     zkPassportVerified: false,
     zkEmailVerified: false,
     pohVerified: false,
-    ecoinmterVerified: false,
+    ecointerVerified: false,
     oauthVerifiedAt: null,
     phoneVerified: false,
     currentTier: null,
@@ -284,16 +284,16 @@ describe('POST /api/verify/oauth — authenticated upgrade path', () => {
 });
 
 describe('Sprint 2 stub endpoints', () => {
-  test('POST /api/verify/zkpassport → 501', async () => {
-    expect((await request(app).post('/api/verify/zkpassport').send({})).status).toBe(501);
+  test('POST /api/verify/qv/zkpassport → 501', async () => {
+    expect((await request(app).post('/api/verify/qv/zkpassport').send({})).status).toBe(501);
   });
-  test('POST /api/verify/zkemail → 501', async () => {
-    expect((await request(app).post('/api/verify/zkemail').send({})).status).toBe(501);
+  test('POST /api/verify/qv/zkemail → 501', async () => {
+    expect((await request(app).post('/api/verify/qv/zkemail').send({})).status).toBe(501);
   });
-  test('POST /api/verify/poh → 501', async () => {
-    expect((await request(app).post('/api/verify/poh').send({})).status).toBe(501);
+  test('POST /api/verify/qv/poh → 501', async () => {
+    expect((await request(app).post('/api/verify/qv/poh').send({})).status).toBe(501);
   });
-  test('POST /api/verify/ecoinmter → 501', async () => {
-    expect((await request(app).post('/api/verify/ecoinmter').send({})).status).toBe(501);
+  test('POST /api/verify/qv/ecointer → 501', async () => {
+    expect((await request(app).post('/api/verify/qv/ecointer').send({})).status).toBe(501);
   });
 });

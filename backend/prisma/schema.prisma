@@ -25,8 +25,8 @@ model User {
   zkEmailVerifiedAt    DateTime? @map("zk_email_verified_at")
   pohVerified          Boolean   @default(false) @map("poh_verified")
   pohVerifiedAt        DateTime? @map("poh_verified_at")
-  ecoinmterVerified    Boolean   @default(false) @map("ecoinmter_verified")
-  ecoinmterVerifiedAt  DateTime? @map("ecoinmter_verified_at")
+  ecointerVerified    Boolean   @default(false) @map("ecointer_verified")
+  ecointerVerifiedAt  DateTime? @map("ecointer_verified_at")
   currentTier          Int?      @map("current_tier")
   displayName          String?   @map("display_name")               // user-set display name; null until explicitly set; max 50 chars
   createdAt            DateTime  @default(now()) @map("created_at")

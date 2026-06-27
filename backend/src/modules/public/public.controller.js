@@ -15,7 +15,7 @@ function buildVerificationHistory(user) {
     user.zkPassportVerified,
     user.zkEmailVerified,
     user.pohVerified,
-    user.ecoinmterVerified,
+    user.ecointerVerified,
   ].filter(Boolean).length;
 
   const candidates = [
@@ -24,7 +24,7 @@ function buildVerificationHistory(user) {
     { field: 'zkPassportVerifiedAt', event: 'zk_passport_verified', tierAfter: zkCount >= 2 ? 0 : 1 },
     { field: 'zkEmailVerifiedAt',    event: 'zk_email_verified',    tierAfter: zkCount >= 2 ? 0 : 1 },
     { field: 'pohVerifiedAt',        event: 'poh_verified',         tierAfter: zkCount >= 2 ? 0 : 1 },
-    { field: 'ecoinmterVerifiedAt',  event: 'ecoinmter_verified',   tierAfter: zkCount >= 2 ? 0 : 1 },
+    { field: 'ecointerVerifiedAt',  event: 'ecointer_verified',   tierAfter: zkCount >= 2 ? 0 : 1 },
   ];
 
   return candidates

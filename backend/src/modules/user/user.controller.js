@@ -23,8 +23,8 @@ const getMe = async (req, res, next) => {
         zkEmailVerifiedAt: user.zkEmailVerifiedAt,
         pohVerified: user.pohVerified,
         pohVerifiedAt: user.pohVerifiedAt,
-        ecoinmterVerified: user.ecoinmterVerified,
-        ecoinmterVerifiedAt: user.ecoinmterVerifiedAt,
+        ecointerVerified: user.ecointerVerified,
+        ecointerVerifiedAt: user.ecointerVerifiedAt,
         currentTier: user.currentTier,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -43,7 +43,7 @@ const updateMe = async (req, res, next) => {
       'oauthProvider', 'oauthVerifiedAt', 'biometricLastUsedAt',
       'zkPassportVerified', 'zkPassportVerifiedAt', 'zkEmailVerified',
       'zkEmailVerifiedAt', 'pohVerified', 'pohVerifiedAt',
-      'ecoinmterVerified', 'ecoinmterVerifiedAt', 'walletAddress',
+      'ecointerVerified', 'ecointerVerifiedAt', 'walletAddress',
     ];
 
     const attempted = forbidden.filter((f) => f in req.body);

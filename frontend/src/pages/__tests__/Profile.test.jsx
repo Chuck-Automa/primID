@@ -30,7 +30,7 @@ function makeUser(overrides = {}) {
     zkPassportVerified: false,
     zkEmailVerified: false,
     pohVerified: false,
-    ecoinmterVerified: false,
+    ecointerVerified: false,
     currentTier: 2,
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-02-01T00:00:00.000Z',
