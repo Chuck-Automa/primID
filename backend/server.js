@@ -8,6 +8,13 @@ const express = require('express');
 const app = require('./src/app');
 const features = require('./src/shared/flags/features');
 
+// PHONE_LISTENER_PROVIDER=android is dev/staging only — never prod (no delivery
+// SLA, single point of failure). Fail closed at boot rather than trusting env config.
+if (process.env.NODE_ENV === 'production' && process.env.PHONE_LISTENER_PROVIDER === 'android') {
+  console.error('[server] PHONE_LISTENER_PROVIDER=android is prohibited in production.');
+  process.exit(1);
+}
+
 const PORT = process.env.PORT || 3001;
 
 // Dev: serve CA cert over plain HTTP on port 3002 so iPhone can download before trusting the cert

@@ -46,6 +46,7 @@ export default function OTPForm({ onSuccess }) {
   const [challengeId, setChallengeId] = useState('');
   const [listenerNumber, setListenerNumber] = useState('');
   const [verifyCode, setVerifyCode]   = useState('');
+  const [maintenanceNotice, setMaintenanceNotice] = useState('');
   const [loading, setLoading]         = useState(false);
   const [error, setError]             = useState('');
   const [copied, setCopied]           = useState(false);
@@ -62,6 +63,7 @@ export default function OTPForm({ onSuccess }) {
       setChallengeId(resp.data.challengeId);
       setListenerNumber(resp.data.listenerNumber);
       setVerifyCode(resp.data.code);
+      setMaintenanceNotice(resp.data.maintenanceNotice || '');
       setCopied(false);
       setStep('pending');
     } catch (err) {
@@ -152,6 +154,11 @@ export default function OTPForm({ onSuccess }) {
   // step === 'pending': show the code and wait for the user to text it.
   return (
     <div>
+      {maintenanceNotice && (
+        <p style={{ marginBottom: '12px', fontSize: '14px', color: '#8a6d3b', background: '#fcf8e3', border: '1px solid #faebcc', borderRadius: '8px', padding: '10px 12px' }}>
+          {maintenanceNotice}
+        </p>
+      )}
       <p style={{ marginBottom: '8px', fontSize: '14px', color: '#666' }}>
         Text the code below to <strong>{listenerNumber}</strong> from your phone:
       </p>

@@ -37,6 +37,21 @@ services:
       # Sprint 1: set to a placeholder (e.g. "STAGING"). Sprint 2: real Telnyx number.
       - key: LISTENER_NUMBER
         sync: false
+      # Android SMS Gateway (interim inbound provider) — prohibited in prod; this
+      # blueprint is prod-only (NODE_ENV=production above), so PHONE_LISTENER_PROVIDER
+      # is hardcoded to stub and FEATURE_PHONE_VERIFICATION_LIVE hardcoded false here.
+      # Staging's own Render service instance (configured separately, outside this
+      # blueprint) sets PHONE_LISTENER_PROVIDER=android and the flag manually.
+      - key: PHONE_LISTENER_PROVIDER
+        value: stub
+      - key: FEATURE_PHONE_VERIFICATION_LIVE
+        value: "false"
+      - key: ANDROID_LISTENER_NUMBER
+        sync: false
+      - key: ANDROID_HEARTBEAT_STALE_AFTER_S
+        value: "600"
+      - key: PHONE_MAINTENANCE_NOTICE
+        sync: false
       # Google OAuth
       - key: GOOGLE_CLIENT_ID
         sync: false
@@ -68,15 +83,22 @@ services:
       - key: REACT_APP_GOOGLE_CLIENT_ID
         sync: false
 
-  # ── Social Listener (Background Worker) ────────────────────────────────────
-  # Sprint 2 — disabled by default. Set REDDIT_SOCIAL_LISTENER=true once credentials
-  # are configured. The listener shares backend Prisma/crypto code via relative imports
-  # so the build installs both backend and listener dependencies.
-  - type: worker
+  # ── Social Listener (Web Service) ───────────────────────────────────────────
+  # type: web (not worker) — the Android phone webhook adapter needs a bound
+  # port/public URL to receive inbound webhooks from the capcom6 gateway app;
+  # Render Background Workers get neither. HMAC signature verification (fail
+  # closed, mandatory) plus the replay window are the actual perimeter control,
+  # not network placement — the Android device is a roaming SIM with no fixed
+  # IP to allowlist regardless. Sprint 2 Reddit polling — disabled by default,
+  # set REDDIT_SOCIAL_LISTENER=true once credentials are configured. The
+  # listener shares backend Prisma/crypto code via relative imports so the
+  # build installs both backend and listener dependencies.
+  - type: web
     name: primid-social-listener
     runtime: node
     buildCommand: cd backend && npm ci --ignore-scripts && npx prisma generate && cd ../primid-social-listener && npm ci --ignore-scripts
     startCommand: node primid-social-listener/index.js
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -98,3 +120,13 @@ services:
         sync: false
       - key: REDDIT_REFRESH_TOKEN
         sync: false
+      # Android SMS Gateway — prohibited in prod by a boot-time guard in index.js
+      # regardless of this value; hardcoded stub here since this blueprint is
+      # prod-only. Staging's own service instance sets PHONE_LISTENER_PROVIDER=android
+      # and ANDROID_FORWARDER_HMAC_SECRET manually (outside this blueprint).
+      - key: PHONE_LISTENER_PROVIDER
+        value: stub
+      - key: ANDROID_FORWARDER_HMAC_SECRET
+        sync: false
+      - key: ANDROID_FORWARDER_REPLAY_WINDOW_S
+        value: "660"

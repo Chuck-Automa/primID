@@ -66,7 +66,7 @@ async function pollRedditInbox() {
     const validations = messages.map((item) => {
       const senderHandle = item.data.author;
       const code         = (item.data.body || '').trim();
-      return challengeService.validateAndMark({ code, senderHandle, platform: 'reddit' });
+      return challengeService.validateAndMarkSocial({ code, senderHandle, platform: 'reddit' });
     });
 
     await Promise.allSettled(validations).then((results) => {

@@ -28,6 +28,9 @@ afterEach(() => {
   delete process.env.NODE_ENV;
   delete process.env.STAGING_PHONE_WHITELIST;
   delete process.env.GOOGLE_CLIENT_ID;
+  delete process.env.FEATURE_PHONE_VERIFICATION_LIVE;
+  delete process.env.PHONE_LISTENER_PROVIDER;
+  delete process.env.ANDROID_HEARTBEAT_STALE_AFTER_S;
   global.fetch = _originalFetch;
 });
 
@@ -49,7 +52,7 @@ function makeAuthToken(userId = 'uid-verify-test', tier = 3) {
 describe('POST /api/verify/phone/initiate', () => {
   test('200 — existing user receives challengeId, listenerNumber, and code', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(makeUser());
-    prisma.phoneChallenge.create.mockResolvedValueOnce({ id: 'challenge-1' });
+    prisma.challenge.create.mockResolvedValueOnce({ id: 'challenge-1' });
 
     const res = await request(app)
       .post('/api/verify/phone/initiate')
@@ -65,7 +68,7 @@ describe('POST /api/verify/phone/initiate', () => {
   test('200 — new user is created automatically and challenge issued', async () => {
     prisma.user.findUnique.mockResolvedValueOnce(null);
     prisma.user.create.mockResolvedValueOnce(makeUser());
-    prisma.phoneChallenge.create.mockResolvedValueOnce({ id: 'challenge-2' });
+    prisma.challenge.create.mockResolvedValueOnce({ id: 'challenge-2' });
 
     const res = await request(app)
       .post('/api/verify/phone/initiate')
@@ -95,7 +98,7 @@ describe('POST /api/verify/phone/initiate', () => {
     process.env.STAGING_PHONE_WHITELIST = WHITELISTED;
 
     prisma.user.findUnique.mockResolvedValueOnce(makeUser({ phoneNumber: `enc::${WHITELISTED}` }));
-    prisma.phoneChallenge.create.mockResolvedValueOnce({ id: 'challenge-staging' });
+    prisma.challenge.create.mockResolvedValueOnce({ id: 'challenge-staging' });
 
     const res = await request(app)
       .post('/api/verify/phone/initiate')
@@ -104,6 +107,64 @@ describe('POST /api/verify/phone/initiate', () => {
     expect(res.status).toBe(200);
     expect(res.body.challengeId).toBe('challenge-staging');
     expect(res.body.code).toMatch(/^[A-Za-z0-9]{8}$/);
+  });
+
+  test('200 — flag on, fresh heartbeat routes live, no maintenanceNotice', async () => {
+    const LIVE_NUMBER = '+12025559999';
+    process.env.NODE_ENV                     = 'staging';
+    process.env.STAGING_PHONE_WHITELIST      = '+12025550101';
+    process.env.FEATURE_PHONE_VERIFICATION_LIVE = 'true';
+    process.env.PHONE_LISTENER_PROVIDER      = 'android';
+    process.env.ANDROID_HEARTBEAT_STALE_AFTER_S = '600';
+
+    prisma.listenerStatus.findUnique.mockResolvedValueOnce({
+      provider: 'android', lastSeenAt: new Date(), deviceId: 'd1',
+    });
+    prisma.user.findUnique.mockResolvedValueOnce(makeUser({ phoneNumber: `enc::${LIVE_NUMBER}` }));
+    prisma.challenge.create.mockResolvedValueOnce({ id: 'challenge-live' });
+
+    const res = await request(app)
+      .post('/api/verify/phone/initiate')
+      .send({ phoneNumber: LIVE_NUMBER });
+
+    expect(res.status).toBe(200);
+    expect(res.body.challengeId).toBe('challenge-live');
+    expect(res.body.maintenanceNotice).toBeUndefined();
+  });
+
+  // NOTE: no integration test for "flag on, stale heartbeat, NODE_ENV=production"
+  // (the branch that returns 503 PHONE_VERIFICATION_UNAVAILABLE) — see the comment
+  // above that branch in verify.controller.js. isOnStagingWhitelist() returns true
+  // unconditionally when NODE_ENV !== 'staging' (see otp.util.test.js's own
+  // "returns true for any number outside staging (dev/prod)" contract test), so
+  // branches 2/3 of /initiate are only reachable when NODE_ENV=staging — there is
+  // currently no real request that reaches the production sub-branch end-to-end.
+
+  test('200 — flag on, stale heartbeat, non-production degrades to stub-fallback with maintenanceNotice', async () => {
+    const LIVE_NUMBER = '+12025559997';
+    process.env.NODE_ENV                     = 'staging';
+    process.env.STAGING_PHONE_WHITELIST      = '+12025550101';
+    process.env.FEATURE_PHONE_VERIFICATION_LIVE = 'true';
+    process.env.PHONE_LISTENER_PROVIDER      = 'android';
+    process.env.ANDROID_HEARTBEAT_STALE_AFTER_S = '600';
+    process.env.PHONE_MAINTENANCE_NOTICE     = 'This service is currently unavailable. Proceeding with next steps.';
+
+    const staleTimestamp = new Date(Date.now() - 700_000); // > 600s ago
+    prisma.listenerStatus.findUnique.mockResolvedValueOnce({
+      provider: 'android', lastSeenAt: staleTimestamp, deviceId: 'd1',
+    });
+    prisma.user.findUnique.mockResolvedValueOnce(makeUser({ phoneNumber: `enc::${LIVE_NUMBER}` }));
+    prisma.challenge.create.mockResolvedValueOnce({ id: 'challenge-fallback' });
+
+    const res = await request(app)
+      .post('/api/verify/phone/initiate')
+      .send({ phoneNumber: LIVE_NUMBER });
+
+    expect(res.status).toBe(200);
+    expect(res.body.challengeId).toBe('challenge-fallback');
+    expect(res.body.maintenanceNotice).toBe(process.env.PHONE_MAINTENANCE_NOTICE);
+
+    delete process.env.PHONE_MAINTENANCE_NOTICE;
   });
 
   test('400 — missing phoneNumber', async () => {
@@ -121,7 +182,7 @@ describe('POST /api/verify/phone/initiate', () => {
 
 describe('GET /api/verify/phone/status/:challengeId', () => {
   test('200 {verified:false} — challenge exists but user has not texted yet', async () => {
-    prisma.phoneChallenge.findFirst.mockResolvedValueOnce({
+    prisma.challenge.findFirst.mockResolvedValueOnce({
       id: 'ch-pending', userId: 'uid-verify-test', usedAt: null,
     });
 
@@ -135,7 +196,7 @@ describe('GET /api/verify/phone/status/:challengeId', () => {
   test('200 {verified:true} — confirmed challenge issues 24h access token, no refresh cookie', async () => {
     const verifiedUser = makeUser({ phoneVerified: true, phoneVerifiedAt: new Date() });
 
-    prisma.phoneChallenge.findFirst.mockResolvedValueOnce({
+    prisma.challenge.findFirst.mockResolvedValueOnce({
       id: 'ch-done', userId: verifiedUser.id, usedAt: new Date(),
     });
     prisma.user.findUnique.mockResolvedValueOnce(verifiedUser);
@@ -153,7 +214,7 @@ describe('GET /api/verify/phone/status/:challengeId', () => {
   });
 
   test('404 — challenge not found or expired', async () => {
-    prisma.phoneChallenge.findFirst.mockResolvedValueOnce(null);
+    prisma.challenge.findFirst.mockResolvedValueOnce(null);
 
     const res = await request(app).get('/api/verify/phone/status/nonexistent');
 

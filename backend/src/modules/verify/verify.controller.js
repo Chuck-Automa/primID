@@ -25,8 +25,21 @@ function setRefreshCookie(res, rawToken) {
 // ── Phone challenge (inverted flow) ──────────────────────────────────────────
 
 // POST /api/verify/phone/initiate
-// Returns {challengeId, listenerNumber, code}. The user texts the code to the
-// listener number; the server marks usedAt when the SMS arrives. No outbound SMS.
+// Returns {challengeId, listenerNumber, code[, maintenanceNotice]}. The user texts
+// the code to the listener number; the server marks usedAt when the SMS arrives
+// (or auto-resolves it, in the stub branches below). No outbound SMS, ever.
+//
+// Three-branch routing, checked in this order (order is load-bearing — see
+// CLAUDE.md §15 and CLAUDE_SOCIAL_VERIFICATION.md):
+//   1. Whitelisted number  → auto-resolve stub, unconditional (ignores the flag
+//      and heartbeat entirely — demo continuity never depends on device state).
+//   2. Not whitelisted, FEATURE_PHONE_VERIFICATION_LIVE off → 403 DEMO_RESTRICTED,
+//      no row created. The flag is the sole live-path access control.
+//   3. Not whitelisted, flag on → check the phone listener heartbeat:
+//        fresh  → live path, resolved later by a real inbound SMS.
+//        stale, NODE_ENV=production → 503, no row created (prod fails closed, always).
+//        stale, non-production      → stub-fallback (same auto-resolve mechanics as
+//          branch 1) plus an additive maintenanceNotice field.
 const initiatePhone = async (req, res, next) => {
   try {
     const { phoneNumber } = req.body;
@@ -42,13 +55,37 @@ const initiatePhone = async (req, res, next) => {
       return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: 'Please enter a valid phone number.' });
     }
 
-    // Staging whitelist check — non-whitelisted numbers are rejected in staging.
-    if (!isOnStagingWhitelist(normalized)) {
+    // isOnStagingWhitelist() returns true unconditionally when NODE_ENV !== 'staging'
+    // (see otp.util.js) — an intentional, tested contract that predates this feature.
+    // Branches 2 and 3 below are therefore only reachable when NODE_ENV=staging;
+    // outside staging every number is treated as whitelisted (branch 1), matching
+    // the "dev: all stubs" / "prod: no live phone verification yet" posture. The
+    // NODE_ENV=production check inside branch 3 is defensive code for once Telnyx
+    // activates in prod (Sprint 2) and this interaction is revisited.
+    const whitelisted = isOnStagingWhitelist(normalized);
+
+    // Branch 2 — reject before any DB write.
+    if (!whitelisted && process.env.FEATURE_PHONE_VERIFICATION_LIVE !== 'true') {
       return res.status(403).json({
         success: false,
         code:    'DEMO_RESTRICTED',
         message: 'This number is not approved for demo access.',
       });
+    }
+
+    // Branch 3 — heartbeat staleness check. Read fresh on every call (no caching)
+    // so heartbeat recovery takes effect on the very next call with no manual reset.
+    let heartbeatStale = false;
+    if (!whitelisted) {
+      const status = await prisma.listenerStatus.findUnique({
+        where: { provider: process.env.PHONE_LISTENER_PROVIDER || 'stub' },
+      });
+      const staleAfterS = Number(process.env.ANDROID_HEARTBEAT_STALE_AFTER_S) || 600;
+      heartbeatStale = !status || (Date.now() - new Date(status.lastSeenAt).getTime()) / 1000 > staleAfterS;
+
+      if (heartbeatStale && process.env.NODE_ENV === 'production') {
+        return res.status(503).json({ success: false, code: 'PHONE_VERIFICATION_UNAVAILABLE' });
+      }
     }
 
     const hmac = computeHmac(normalized);
@@ -64,19 +101,21 @@ const initiatePhone = async (req, res, next) => {
     const code = generateCode();
     const expiresAt = new Date(Date.now() + CHALLENGE_TTL_MS);
 
-    const challenge = await prisma.phoneChallenge.create({
-      data: { userId: user.id, phoneNumberHmac: hmac, code, expiresAt },
+    const challenge = await prisma.challenge.create({
+      data: { userId: user.id, channel: 'phone', phoneNumberHmac: hmac, code, expiresAt },
     });
 
-    // In non-production environments, auto-resolve the challenge after a
-    // configurable delay so reviewers can complete the full UX without real SMS.
-    if (AUTO_RESOLVE_ENABLED && isOnStagingWhitelist(normalized)) {
+    // Stub path applies to branch 1 (whitelisted) and branch 3's stale-heartbeat
+    // degrade (3c) — both auto-resolve server-side rather than waiting on a real SMS.
+    const isStubPath = whitelisted || heartbeatStale;
+    if (AUTO_RESOLVE_ENABLED && isStubPath) {
       const delayMs = parseInt(process.env.STAGING_PHONE_STUB_DELAY_MS) || 3000;
+      const resolvedVia = whitelisted ? 'stub_demo' : 'stub_fallback';
       setTimeout(async () => {
         try {
-          await prisma.phoneChallenge.updateMany({
+          await prisma.challenge.updateMany({
             where: { id: challenge.id, usedAt: null },
-            data:  { usedAt: new Date() },
+            data:  { usedAt: new Date(), resolvedVia },
           });
         } catch {
           // Swallow — challenge may have expired or been consumed already.
@@ -84,12 +123,16 @@ const initiatePhone = async (req, res, next) => {
       }, delayMs);
     }
 
-    return res.status(200).json({
-      success:        true,
-      challengeId:    challenge.id,
-      listenerNumber: process.env.LISTENER_NUMBER || 'STAGING',
-      code,
-    });
+    const listenerNumber = whitelisted
+      ? 'STAGING'
+      : (process.env.ANDROID_LISTENER_NUMBER || process.env.LISTENER_NUMBER || 'STAGING');
+
+    const response = { success: true, challengeId: challenge.id, listenerNumber, code };
+    if (!whitelisted && heartbeatStale) {
+      response.maintenanceNotice = process.env.PHONE_MAINTENANCE_NOTICE || '';
+    }
+
+    return res.status(200).json(response);
   } catch (err) {
     next(err);
   }
@@ -98,12 +141,13 @@ const initiatePhone = async (req, res, next) => {
 // GET /api/verify/phone/status/:challengeId
 // Polls whether the user has texted the code to the listener number.
 // On usedAt set: marks phone verified, computes tier, issues 24h JWT.
+// Polls identically regardless of which /initiate branch created the row.
 const getPhoneStatus = async (req, res, next) => {
   try {
     const { challengeId } = req.params;
 
-    const challenge = await prisma.phoneChallenge.findFirst({
-      where: { id: challengeId, expiresAt: { gt: new Date() } },
+    const challenge = await prisma.challenge.findFirst({
+      where: { id: challengeId, channel: 'phone', expiresAt: { gt: new Date() } },
     });
 
     if (!challenge) {

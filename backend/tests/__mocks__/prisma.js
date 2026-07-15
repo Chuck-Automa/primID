@@ -37,10 +37,13 @@ const prisma = {
     update:     jest.fn(),
     updateMany: jest.fn(),
   },
-  phoneChallenge: {
+  challenge: {
     create:     jest.fn(),
     findFirst:  jest.fn(),
     updateMany: jest.fn(),
+  },
+  listenerStatus: {
+    findUnique: jest.fn(),
   },
 };
 

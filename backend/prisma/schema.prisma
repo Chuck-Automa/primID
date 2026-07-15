@@ -37,8 +37,7 @@ model User {
   receivedAttestations   Attestation[]           @relation("subject")
   socialAccounts         SocialAccount[]
   refreshTokens          RefreshToken[]
-  verificationChallenges VerificationChallenge[]
-  phoneChallenges        PhoneChallenge[]
+  challenges             Challenge[]
 
   @@map("users")
 }
@@ -77,7 +76,7 @@ model SocialAccount {
 
   conflictsAsA           SocialHandleConflict[] @relation("conflict_a")
   conflictsAsB           SocialHandleConflict[] @relation("conflict_b")
-  verificationChallenges VerificationChallenge[]
+  challenges             Challenge[]
 
   @@map("social_accounts")
 }
@@ -113,36 +112,39 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-model PhoneChallenge {
+// Unified challenge table for both phone (inverted SMS flow) and social (DM
+// listener) verification. `channel` discriminates which fields are populated:
+// 'phone'  → phoneNumberHmac set; socialAccountId/platform/expectedHandle null
+// 'social' → socialAccountId/platform set; phoneNumberHmac null
+model Challenge {
   id              String    @id @default(uuid())
   userId          String    @map("user_id")
-  phoneNumberHmac String    @map("phone_number_hmac")
+  channel         String                                      // 'phone' | 'social'
   code            String
+  phoneNumberHmac String?   @map("phone_number_hmac")          // phone channel only
+  socialAccountId String?   @map("social_account_id")          // social channel only
+  platform        String?                                      // social channel only
+  expectedHandle  String?   @map("expected_handle")             // social channel only — unused for validation (handle_hmac match is authoritative), preserved as-is
+  resolvedVia     String?   @map("resolved_via")                // phone channel: 'sms' | 'stub_demo' | 'stub_fallback' | null; always null for social
   createdAt       DateTime  @default(now()) @map("created_at")
   expiresAt       DateTime  @map("expires_at")
   usedAt          DateTime? @map("used_at")
 
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([phoneNumberHmac])
-  @@map("phone_challenges")
-}
-
-model VerificationChallenge {
-  id              String    @id @default(uuid())
-  userId          String    @map("user_id")
-  socialAccountId String    @map("social_account_id")
-  code            String
-  platform        String
-  expectedHandle  String    @map("expected_handle")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  expiresAt       DateTime  @map("expires_at")
-  usedAt          DateTime? @map("used_at")
-
-  user          User          @relation(fields: [userId],          references: [id])
-  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
+  socialAccount SocialAccount? @relation(fields: [socialAccountId], references: [id])
 
   @@index([code])
-  @@map("verification_challenges")
+  @@index([phoneNumberHmac])
+  @@map("challenges")
+}
+
+// Heartbeat table for inbound phone listener adapters (Android SMS Gateway,
+// Telnyx). Listener-owned — the main API only ever reads this table.
+model ListenerStatus {
+  provider   String   @id                        // 'android' | 'telnyx'
+  lastSeenAt DateTime @map("last_seen_at")
+  deviceId   String?  @map("device_id")           // capcom6 deviceId, for audit — no PII
+
+  @@map("listener_status")
 }
 
