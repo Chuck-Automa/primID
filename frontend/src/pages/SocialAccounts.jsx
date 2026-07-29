@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { PLATFORMS } from '../data/platforms';
+import SocialVerifyPanel from '../components/SocialVerifyPanel';
+
+// Platforms with a machine-verifiable path today (Category A Telegram DM listener,
+// Category B GitHub crawl) — matches backend social.controller.js's
+// VERIFIABLE_PLATFORMS. Everything else in PLATFORMS is Category C
+// (self-reported only) or not yet built (Sprint 3+ crawlers).
+const VERIFIABLE_PLATFORMS = ['telegram', 'github'];
 
 const inputStyle = {
   width: '100%',
@@ -33,6 +40,7 @@ export default function SocialAccounts() {
   const [addError, setAddError] = useState('');
   const [adding, setAdding] = useState(false);
   const [currentTier, setCurrentTier] = useState(undefined);
+  const [verifyingId, setVerifyingId] = useState(null);
 
   useEffect(() => {
     api.get('/api/user/me')
@@ -176,35 +184,59 @@ export default function SocialAccounts() {
         ) : (
           accounts.map((a) => {
             const platformLabel = PLATFORMS.find((p) => p.value === a.platform)?.label || a.platform;
+            const canVerify = VERIFIABLE_PLATFORMS.includes(a.platform);
             return (
-              <div key={a.id} style={accountRowStyle}>
-                <div>
-                  <p style={{ fontSize: '14px', fontWeight: 600 }}>{platformLabel}</p>
-                  <p style={{ fontSize: '13px', color: '#666' }}>{a.handle}</p>
-                  {a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>}
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  {canShare && (
+              <div key={a.id} style={{ marginBottom: '8px' }}>
+                <div style={{ ...accountRowStyle, marginBottom: 0 }}>
+                  <div>
+                    <p style={{ fontSize: '14px', fontWeight: 600 }}>{platformLabel}</p>
+                    <p style={{ fontSize: '13px', color: '#666' }}>{a.handle}</p>
+                    {a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>}
+                    {canVerify && a.verifiedAt && (
+                      <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>✓ Verified</p>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {canVerify && !a.verifiedAt && (
+                      <button
+                        onClick={() => setVerifyingId(verifyingId === a.id ? null : a.id)}
+                        style={{
+                          background: 'none', border: '1px solid #ddd', color: '#1a1a2e',
+                          fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+                        }}
+                      >
+                        {verifyingId === a.id ? 'Cancel' : 'Verify'}
+                      </button>
+                    )}
+                    {canShare && (
+                      <button
+                        onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                        style={{
+                          background: 'none', border: '1px solid #ddd', color: '#457b9d',
+                          fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+                        }}
+                      >
+                        ⬆ Share
+                      </button>
+                    )}
                     <button
-                      onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                      onClick={() => handleDelete(a.id)}
                       style={{
-                        background: 'none', border: '1px solid #ddd', color: '#457b9d',
+                        background: 'none', border: '1px solid #eee', color: '#c0392b',
                         fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
                       }}
                     >
-                      ⬆ Share
+                      Remove
                     </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(a.id)}
-                    style={{
-                      background: 'none', border: '1px solid #eee', color: '#c0392b',
-                      fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                    }}
-                  >
-                    Remove
-                  </button>
+                  </div>
                 </div>
+                {verifyingId === a.id && (
+                  <SocialVerifyPanel
+                    account={a}
+                    onVerified={() => { setVerifyingId(null); fetchAccounts(); }}
+                    onClose={() => setVerifyingId(null)}
+                  />
+                )}
               </div>
             );
           })
