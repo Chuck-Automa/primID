@@ -13,7 +13,8 @@
     "db:studio": "npx prisma studio",
     "db:seed": "node prisma/seed.js",
     "db:generate": "npx prisma generate",
-    "db:backfill-handle-ale": "node prisma/migrations/20260422000001_add_handle_ale_columns/backfill.js"
+    "db:backfill-handle-ale": "node prisma/migrations/20260422000001_add_handle_ale_columns/backfill.js",
+    "db:backfill-telegram-canonical": "node prisma/migrations/20260728130000_canonicalize_telegram_handles/backfill.js"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

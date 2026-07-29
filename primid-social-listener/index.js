@@ -31,6 +31,24 @@ if (process.env.REDDIT_SOCIAL_LISTENER === 'true') {
     }
   }
 }
+if (process.env.TELEGRAM_SOCIAL_LISTENER === 'true') {
+  // Fail closed on an ambiguous/invalid mode rather than silently defaulting —
+  // this is the single guard that prevents webhook + polling running together.
+  const mode = process.env.TELEGRAM_LISTENER_MODE;
+  if (mode !== 'polling' && mode !== 'webhook') {
+    console.error(`[listener] TELEGRAM_SOCIAL_LISTENER=true requires TELEGRAM_LISTENER_MODE=polling|webhook, got: ${mode}`);
+    process.exit(1);
+  }
+  const required = mode === 'webhook'
+    ? ['TELEGRAM_BOT_TOKEN', 'TELEGRAM_WEBHOOK_SECRET']
+    : ['TELEGRAM_BOT_TOKEN'];
+  for (const key of required) {
+    if (!process.env[key]) {
+      console.error(`[listener] Missing required env var: ${key}`);
+      process.exit(1);
+    }
+  }
+}
 if (process.env.PHONE_LISTENER_PROVIDER === 'android') {
   for (const key of ['ANDROID_FORWARDER_HMAC_SECRET']) {
     if (!process.env[key]) {
@@ -38,10 +56,15 @@ if (process.env.PHONE_LISTENER_PROVIDER === 'android') {
       process.exit(1);
     }
   }
+  // Not fatal: unset just means the stub-fallback response omits maintenanceNotice.
+  if (!process.env.PHONE_MAINTENANCE_NOTICE) {
+    console.warn('[listener] PHONE_MAINTENANCE_NOTICE is unset — stub-fallback responses will omit maintenanceNotice.');
+  }
 }
 
-const prisma        = require('../backend/src/shared/db/prisma');
-const redditAdapter  = require('./adapters/reddit.adapter');
+const prisma          = require('../backend/src/shared/db/prisma');
+const redditAdapter   = require('./adapters/reddit.adapter');
+const telegramAdapter = require('./adapters/telegram.adapter');
 
 // Daily cleanup: delete expired challenges (both phone and social channels),
 // unconditionally — this process now always stays alive to run it, regardless
@@ -66,11 +89,25 @@ if (process.env.REDDIT_SOCIAL_LISTENER === 'true') {
   console.log('[listener] Reddit polling active.');
 }
 
-if (process.env.PHONE_LISTENER_PROVIDER === 'android') {
+if (process.env.TELEGRAM_SOCIAL_LISTENER === 'true' && process.env.TELEGRAM_LISTENER_MODE === 'polling') {
+  telegramAdapter.startPolling();
+  console.log('[listener] Telegram polling active.');
+}
+
+// A shared HTTP server is needed whenever any webhook-delivered adapter is
+// active — currently the Android phone gateway or Telegram in webhook mode.
+// app.js's own mount functions (phoneAdapters.mount, telegramAdapter.mount)
+// each self-gate on their own env vars, so calling both unconditionally here
+// is safe — only the active one(s) register routes.
+const needsHttpServer =
+  process.env.PHONE_LISTENER_PROVIDER === 'android' ||
+  (process.env.TELEGRAM_SOCIAL_LISTENER === 'true' && process.env.TELEGRAM_LISTENER_MODE === 'webhook');
+
+if (needsHttpServer) {
   const app = require('./app');
   const PORT = process.env.PORT || process.env.LISTENER_WEBHOOK_PORT || 8090;
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[listener] Android phone webhook server running on port ${PORT}`);
+    console.log(`[listener] Webhook server running on port ${PORT}`);
   });
 }
 

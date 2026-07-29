@@ -1,6 +1,7 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const phoneAdapters = require('./adapters/phone');
+const telegramAdapter = require('./adapters/telegram.adapter');
 
 const app = express();
 
@@ -21,6 +22,7 @@ const webhookLimiter = rateLimit({ windowMs: 60_000, max: 120 });
 app.use('/webhooks', webhookLimiter);
 
 phoneAdapters.mount(app);
+telegramAdapter.mount(app);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found.' });
