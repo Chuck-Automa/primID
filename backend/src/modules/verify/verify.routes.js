@@ -12,6 +12,7 @@ const {
   pohStub,
   ecointerStub,
 } = require('./verify.controller');
+const { crawlSocialAccount } = require('./category-b/crawl.controller');
 
 const router = express.Router();
 
@@ -46,6 +47,18 @@ router.post(
   validateRequest,
   verifyOAuth
 );
+
+// Category B (post-and-crawl) — narrowest-scope rate limit, one crawl per
+// click is the expected cadence; this just guards against a stuck/looping frontend.
+const crawlLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 6,
+  message: { success: false, message: 'Too many verification attempts. Please wait a moment and try again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${req.userId}:${req.params.socialAccountId}`,
+});
+router.post('/social/:socialAccountId/crawl', authenticate, crawlLimiter, crawlSocialAccount);
 
 // Sprint 2 stubs — QV endpoints namespaced under /qv/
 router.post('/qv/zkpassport', zkPassportStub);
