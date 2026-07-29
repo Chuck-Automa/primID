@@ -66,6 +66,15 @@ services:
         sync: false
       - key: APPLE_PRIVATE_KEY
         sync: false
+      # GitHub Category B crawler — fine-grained PAT, zero repo/org permissions,
+      # issued from the Foundation's GitHub org account. Fails fast at boot if
+      # absent. See CLAUDE_CATEGORY_B_VERIFICATION.md.
+      - key: GITHUB_PAT
+        sync: false
+      - key: CATEGORY_B_PROVIDER
+        value: live
+      - key: CATEGORY_B_STUB_HANDLES
+        sync: false
 
   # ── Frontend (React Static Site) ───────────────────────────────────────────
   - type: static
@@ -119,6 +128,19 @@ services:
       - key: REDDIT_CLIENT_SECRET
         sync: false
       - key: REDDIT_REFRESH_TOKEN
+        sync: false
+      # Telegram Category A adapter — this service is already type:web (bound
+      # port) for the Android webhook, so TELEGRAM_LISTENER_MODE=webhook shares
+      # it rather than needing a second service. Leave mode "off" until the
+      # bot token + setWebhook registration (secret_token = TELEGRAM_WEBHOOK_SECRET)
+      # are done — see CLAUDE_CATEGORY_A_VERIFICATION.md / PLAN_telegram_listener.md.
+      - key: TELEGRAM_SOCIAL_LISTENER
+        value: "false"
+      - key: TELEGRAM_LISTENER_MODE
+        value: "off"                    # off | polling | webhook — polling is dev-only, never set here
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
         sync: false
       # Android SMS Gateway — prohibited in prod by a boot-time guard in index.js
       # regardless of this value; hardcoded stub here since this blueprint is
