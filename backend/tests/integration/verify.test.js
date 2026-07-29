@@ -147,7 +147,7 @@ describe('POST /api/verify/phone/initiate', () => {
     process.env.FEATURE_PHONE_VERIFICATION_LIVE = 'true';
     process.env.PHONE_LISTENER_PROVIDER      = 'android';
     process.env.ANDROID_HEARTBEAT_STALE_AFTER_S = '600';
-    process.env.PHONE_MAINTENANCE_NOTICE     = 'This service is currently unavailable. Proceeding with next steps.';
+    process.env.PHONE_MAINTENANCE_NOTICE     = 'test-fixture-maintenance-notice';
 
     const staleTimestamp = new Date(Date.now() - 700_000); // > 600s ago
     prisma.listenerStatus.findUnique.mockResolvedValueOnce({

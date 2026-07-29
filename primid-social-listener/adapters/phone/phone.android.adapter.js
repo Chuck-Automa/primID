@@ -7,17 +7,26 @@ const heartbeatService = require('../../services/heartbeat.service');
 // In-memory dedup on payload.messageId — the app retries on non-2xx and slow
 // responses (>30s). usedAt in challenge.service.js remains the authoritative
 // dedup; this just avoids redundant work on legitimate app-side retries.
+//
+// hasSeen() is check-only; markSeen() is called only after a message has been
+// fully processed without throwing. Marking on first sight (before the DB
+// call) would poison the cache on a transient failure: the app's legitimate
+// retry would then hit the cache, no-op with 200, and the SMS would be
+// dropped forever instead of being retried into success.
 const MAX_SEEN = 500;
 const seenMessageIds = new Map();
 
-function isDuplicate(messageId) {
+function hasSeen(messageId) {
   if (!messageId) return false;
-  if (seenMessageIds.has(messageId)) return true;
+  return seenMessageIds.has(messageId);
+}
+
+function markSeen(messageId) {
+  if (!messageId) return;
   seenMessageIds.set(messageId, true);
   if (seenMessageIds.size > MAX_SEEN) {
     seenMessageIds.delete(seenMessageIds.keys().next().value);
   }
-  return false;
 }
 
 // Signed message = raw request body bytes + timestamp string, concatenated in
@@ -59,10 +68,13 @@ function safeParseForLogging(req) {
   }
 }
 
-function extractCode(message) {
-  if (!message) return null;
-  const match = message.trim().match(/[A-Za-z0-9]{8}/);
-  return match ? match[0] : null;
+// Word-boundary-anchored: an unanchored 8-char run would match the first 8
+// characters of a longer word (e.g. "Verification ABCD1234" incorrectly
+// yielding "Verifica"), shadowing the real code. Up to 3 candidates are
+// returned; trying all of them is safe since a miss is inert per spec.
+function extractCodeCandidates(message) {
+  if (!message) return [];
+  return (message.match(/\b[A-Za-z0-9]{8}\b/g) || []).slice(0, 3);
 }
 
 async function handleSmsReceived(req, res) {
@@ -84,8 +96,10 @@ async function handleSmsReceived(req, res) {
     const parsed = JSON.parse(req.body.toString('utf8'));
     const payload = parsed.payload || {};
 
-    // Step 3: dedup on messageId.
-    if (isDuplicate(payload.messageId)) {
+    // Step 3: dedup on messageId — check only; marking happens after
+    // processing completes below, so a transient failure can't poison the
+    // cache against the app's legitimate retry.
+    if (hasSeen(payload.messageId)) {
       return res.status(200).end();
     }
 
@@ -98,14 +112,22 @@ async function handleSmsReceived(req, res) {
       return res.status(200).end();
     }
 
-    // Step 5: extract the 8-char challenge code.
-    const code = extractCode(payload.message);
-    if (!code) {
-      return res.status(200).end();
-    }
+    // Step 5: extract candidate 8-char challenge codes (up to 3).
+    const candidates = extractCodeCandidates(payload.message);
 
     // Step 6: shared challenge service owns all FROM-vs-expected matching.
-    await challengeService.validateAndMarkPhone({ code, senderHandle: normalizedFrom });
+    // A miss is inert per spec, so trying every candidate in order is safe —
+    // no early exit on a non-match.
+    for (const code of candidates) {
+      await challengeService.validateAndMarkPhone({ code, senderHandle: normalizedFrom });
+    }
+
+    // The message is now fully processed with no transient error — safe to
+    // mark seen so a legitimate app-side retry short-circuits at Step 3
+    // instead of re-running the candidate loop. This holds regardless of
+    // whether any candidate matched, and regardless of the candidate list
+    // being empty.
+    markSeen(payload.messageId);
 
     // Step 7: always 2xx for a handled case — a miss (no match found) is
     // legitimately inert per spec, not an error.

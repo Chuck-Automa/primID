@@ -128,8 +128,8 @@ const initiatePhone = async (req, res, next) => {
       : (process.env.ANDROID_LISTENER_NUMBER || process.env.LISTENER_NUMBER || 'STAGING');
 
     const response = { success: true, challengeId: challenge.id, listenerNumber, code };
-    if (!whitelisted && heartbeatStale) {
-      response.maintenanceNotice = process.env.PHONE_MAINTENANCE_NOTICE || '';
+    if (!whitelisted && heartbeatStale && process.env.PHONE_MAINTENANCE_NOTICE) {
+      response.maintenanceNotice = process.env.PHONE_MAINTENANCE_NOTICE;
     }
 
     return res.status(200).json(response);
