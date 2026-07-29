@@ -1,4 +1,4 @@
-const challengeService = require('../services/challenge.service');
+const challengeService = require('../../backend/src/shared/services/challenge.service');
 
 const POLL_INTERVAL_MS = 30_000;
 const REDDIT_TOKEN_URL = 'https://www.reddit.com/api/v1/access_token';

@@ -1,5 +1,5 @@
-const prisma = require('../../backend/src/shared/db/prisma');
-const { computeHmac } = require('../../backend/src/shared/utils/crypto.util');
+const prisma = require('../db/prisma');
+const { computeHmac } = require('../utils/crypto.util');
 
 // Shared "mark used" step for both channels — always runs inside the caller's
 // transaction, always sets resolvedVia in the same write that sets usedAt.
@@ -11,13 +11,20 @@ async function _markUsed(tx, challengeId, resolvedVia) {
 }
 
 /**
- * Validate an incoming social DM challenge code and mark it used.
- * All DB operations run inside a single transaction.
+ * Validate an incoming social challenge code (DM or crawl-discovered artifact)
+ * and mark it used. All DB operations run inside a single transaction.
  *
  * Security rule: the HMAC comparison against social_accounts.handle_hmac is the
  * authoritative identity check. Never compare against the ALE-encrypted handle column.
+ *
+ * Returns true if the challenge was validated and marked used, false on any miss
+ * (not found/expired, platform mismatch, or handle mismatch) — callers that need
+ * to react to the outcome (e.g. a Category A adapter's reply, a Category B crawl
+ * controller's response) use this return value rather than re-deriving it.
  */
 async function validateAndMarkSocial({ code, senderHandle, platform }) {
+  let verified = false;
+
   await prisma.$transaction(async (tx) => {
     // Step 1: look up the challenge — must be unused and unexpired.
     const challenge = await tx.challenge.findFirst({
@@ -61,8 +68,11 @@ async function validateAndMarkSocial({ code, senderHandle, platform }) {
       data:  { verifiedAt: new Date() },
     });
 
+    verified = true;
     console.log(`[challenge-service] VERIFIED code_prefix=${code.slice(0, 3)} platform=${platform}`);
   });
+
+  return verified;
 }
 
 /**

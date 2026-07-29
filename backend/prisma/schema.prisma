@@ -129,6 +129,7 @@ model Challenge {
   createdAt       DateTime  @default(now()) @map("created_at")
   expiresAt       DateTime  @map("expires_at")
   usedAt          DateTime? @map("used_at")
+  crawlAttempts   Int       @default(0) @map("crawl_attempts")   // Category B only — per-challenge crawl cap of 10; platform-side failures do not increment
 
   user          User           @relation(fields: [userId], references: [id])
   socialAccount SocialAccount? @relation(fields: [socialAccountId], references: [id])
