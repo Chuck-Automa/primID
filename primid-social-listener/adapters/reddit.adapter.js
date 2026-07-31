@@ -1,4 +1,5 @@
 const challengeService = require('../../backend/src/shared/services/challenge.service');
+const { hasCanonicalizationRule } = require('../../backend/src/shared/utils/handleCanonicalization.util');
 
 const POLL_INTERVAL_MS = 30_000;
 const REDDIT_TOKEN_URL = 'https://www.reddit.com/api/v1/access_token';
@@ -83,7 +84,18 @@ async function pollRedditInbox() {
   setTimeout(pollRedditInbox, POLL_INTERVAL_MS);
 }
 
+// Startup guard: "reddit" is not currently in VALID_PLATFORMS
+// (backend/src/modules/social/social.controller.js) or the canonicalization
+// registry — self-reported Reddit accounts cannot be registered at all today,
+// and CLAUDE_CATEGORY_A_VERIFICATION.md blocks the Reddit adapter on an open
+// compliance review regardless. This makes flipping REDDIT_SOCIAL_LISTENER=true
+// fail fast with a clear error instead of silently polling for handle matches
+// that could never occur — the platform must be deliberately added to the
+// registry (and VALID_PLATFORMS) before this adapter may run.
 function start() {
+  if (!hasCanonicalizationRule('reddit')) {
+    throw new Error('[reddit-adapter] platform "reddit" has no handleCanonicalization rule registered — refusing to start.');
+  }
   setTimeout(pollRedditInbox, 0);
 }
 

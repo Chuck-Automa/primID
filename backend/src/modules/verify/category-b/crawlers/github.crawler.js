@@ -10,6 +10,18 @@
 // expected handle (a pass) or not (handle_mismatch). This crawler never touches
 // challenges or social_accounts rows; no DB logic here.
 
+const { hasCanonicalizationRule } = require('../../../../shared/utils/handleCanonicalization.util');
+
+// Startup guard: crawler.registry.js requires this module unconditionally at
+// load time (github is always registered as a Category B crawler, not gated
+// behind a feature flag), so the guard runs at module load here rather than
+// inside crawl() — a crawl endpoint for an unregistered platform must be
+// structurally impossible per CLAUDE_SOCIAL_VERIFICATION.md's Handle
+// Canonicalization Registry section. No-op today: github has a rule.
+if (!hasCanonicalizationRule('github')) {
+  throw new Error('[github-crawler] platform "github" has no handleCanonicalization rule registered — refusing to load.');
+}
+
 const GITHUB_API = 'https://api.github.com';
 
 function githubHeaders() {

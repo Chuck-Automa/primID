@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const challengeService = require('../../backend/src/shared/services/challenge.service');
+const { canonicalizeHandle, hasCanonicalizationRule } = require('../../backend/src/shared/utils/handleCanonicalization.util');
 
 const TELEGRAM_API = 'https://api.telegram.org';
 const POLL_INTERVAL_MS = 3000; // long-poll re-arm delay between getUpdates calls (dev only)
@@ -69,11 +70,21 @@ async function processMessage(message) {
   }
 
   const chatId = message.chat.id;
-  // Lowercase only — the Bot API never includes '@' or a t.me/ URL prefix in
-  // from.username, so full canonicalizeHandle() (which also strips those) is
-  // unnecessary here. This makes both sides of the HMAC comparison canonical;
-  // see PLAN_telegram_listener.md Step 2.
-  const senderHandle = message.from?.username?.toLowerCase();
+  // Routed through the shared registry (handleCanonicalization.util.js) rather
+  // than an inline lowercase, so adapter-side and registration-side canonical
+  // forms can never drift (env-audit "canonicalization reachability" finding,
+  // CLAUDE_ENVIRONMENTS.md). A throw here (malformed username — practically
+  // never happens, since the Bot API only ever hands us usernames satisfying
+  // Telegram's own format) is treated the same as no username at all: there is
+  // no canonical handle to HMAC-compare against.
+  let senderHandle = null;
+  if (message.from?.username) {
+    try {
+      senderHandle = canonicalizeHandle('telegram', message.from.username);
+    } catch {
+      senderHandle = null;
+    }
+  }
 
   if (!senderHandle) {
     await sendTelegramMessage(chatId, REPLY.NO_USERNAME);
@@ -135,12 +146,26 @@ async function handleWebhook(req, res) {
   }
 }
 
+// Startup guard: a Category A adapter for a platform absent from the
+// canonicalization registry must be structurally impossible to run — see
+// CLAUDE_SOCIAL_VERIFICATION.md's Handle Canonicalization Registry section.
+// Called only from the entry points that actually start the adapter (mount()
+// in webhook mode, startPolling() in polling mode) rather than unconditionally
+// at module load, so requiring this file (as index.js always does) never
+// crashes the whole listener process for a disabled adapter.
+function assertRegistered() {
+  if (!hasCanonicalizationRule('telegram')) {
+    throw new Error('[telegram-adapter] platform "telegram" has no handleCanonicalization rule registered — refusing to start.');
+  }
+}
+
 // Registers the webhook route only when this process is configured for
 // webhook mode — mirrors the self-contained gating pattern in adapters/phone/index.js.
 function mount(app) {
   if (process.env.TELEGRAM_SOCIAL_LISTENER !== 'true' || process.env.TELEGRAM_LISTENER_MODE !== 'webhook') {
     return;
   }
+  assertRegistered();
   app.post('/webhooks/telegram', express.json({ limit: '256kb' }), handleWebhook);
 }
 
@@ -180,6 +205,7 @@ async function pollUpdates() {
 }
 
 function startPolling() {
+  assertRegistered();
   setTimeout(pollUpdates, 0);
 }
 

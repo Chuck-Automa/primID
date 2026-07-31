@@ -55,10 +55,20 @@ const addSocialAccount = async (req, res, next) => {
     // Canonicalize before HMAC/encryption — platform-specific rule, see
     // handleCanonicalization.util.js. Must happen before both the HMAC lookup
     // computation and ALE encryption, same discipline as normalizePhone().
+    // A platform absent from the registry (structurally impossible today for
+    // any VALID_PLATFORMS entry, see the registry's own comment) is rejected
+    // here rather than silently passed through as-typed.
     let canonicalHandle;
     try {
       canonicalHandle = canonicalizeHandle(normalizedPlatform, handle);
     } catch (err) {
+      if (err.message === 'UNSUPPORTED_PLATFORM') {
+        return res.status(400).json({
+          success: false,
+          code:    'UNSUPPORTED_PLATFORM',
+          message: 'This platform has no canonicalization rule defined and cannot be registered.',
+        });
+      }
       return res.status(400).json({
         success: false,
         code:    err.message,

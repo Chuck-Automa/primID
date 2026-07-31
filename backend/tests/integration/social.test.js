@@ -150,12 +150,25 @@ describe('POST /api/social-accounts', () => {
   });
 
   test('all 11 supported platforms are accepted', async () => {
-    const platforms = [
-      'facebook', 'x', 'signal', 'telegram', 'linkedin', 'instagram',
-      'farcaster', 'nostr', 'bluesky', 'github', 'bitchat',
-    ];
+    // A single generic handle can't satisfy every platform's canonicalization
+    // rule (added by the registry hardening pass) — signal needs a numeric
+    // discriminator, bluesky needs a DNS-style hostname, nostr needs a valid
+    // npub/hex pubkey. Use a realistic valid handle per platform instead.
+    const platformHandles = {
+      facebook:  'testhandle',
+      x:         'testhandle',
+      signal:    'testhandle.42',
+      telegram:  'testhandle',
+      linkedin:  'testhandle',
+      instagram: 'testhandle',
+      farcaster: 'testhandle',
+      nostr:     'npub180cvv07tjdrrgpa0j7j7tmnyl2yr6yr7l8j4s3evf6u64th6gkwsyjh6w6',
+      bluesky:   'testhandle.bsky.social',
+      github:    'testhandle',
+      bitchat:   'testhandle',
+    };
 
-    for (const platform of platforms) {
+    for (const [platform, handle] of Object.entries(platformHandles)) {
       mockAuthTombstone();
       prisma.socialAccount.create.mockResolvedValue(makeAccount({ platform }));
       prisma.socialAccount.findMany.mockResolvedValue([]); // no conflicts
@@ -163,7 +176,7 @@ describe('POST /api/social-accounts', () => {
       const res = await request(app)
         .post('/api/social-accounts')
         .set(authHeader())
-        .send({ platform, handle: 'testhandle', isPublic: false });
+        .send({ platform, handle, isPublic: false });
 
       expect(res.status).toBe(201);
     }
