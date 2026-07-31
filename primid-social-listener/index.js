@@ -9,17 +9,20 @@ if (process.env.NODE_ENV === 'production' && process.env.PHONE_LISTENER_PROVIDER
 }
 
 // Core env vars — both channels' crypto needs these regardless of which
-// adapters are active.
+// adapters are active. ALE key material (ALE_ENCRYPTION_KEY / ALE_KMS_KEY_ARN)
+// is deliberately NOT in this boot-fatal set (audit finding F2): this
+// process's only reachable crypto operation is computeHmac() via
+// challenge.service.js — encrypt()/decrypt() are never called anywhere in
+// this service's dependency graph. crypto.util.js's getAleKey() already
+// throws a clear, actionable error at call time if ALE key material is
+// missing, so gating it here too was strictly redundant — it just forced an
+// HMAC-only deployment to also provision encryption keys it would never use.
 const coreRequired = ['HMAC_SECRET', 'DATABASE_URL'];
 for (const key of coreRequired) {
   if (!process.env[key]) {
     console.error(`[listener] Missing required env var: ${key}`);
     process.exit(1);
   }
-}
-if (!process.env.ALE_ENCRYPTION_KEY && !process.env.ALE_KMS_KEY_ARN) {
-  console.error('[listener] Missing env var: ALE_ENCRYPTION_KEY or ALE_KMS_KEY_ARN must be set.');
-  process.exit(1);
 }
 
 // Adapter-scoped required env vars — only validated when that adapter is active.

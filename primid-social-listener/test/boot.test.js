@@ -13,11 +13,15 @@ const http = require('node:http');
 const INDEX_PATH = path.join(__dirname, '..', 'index.js');
 const LISTENER_DIR = path.join(__dirname, '..');
 
+// Deliberately no ALE_ENCRYPTION_KEY / ALE_KMS_KEY_ARN here (audit finding
+// F2) — this service's only reachable crypto operation is computeHmac(), so
+// ALE key material is no longer boot-fatal. See the dedicated
+// "boots with no ALE vars set at all" test below, which asserts this holds
+// for every mode this file exercises, not just the default case.
 const BASE_ENV = {
   PATH: process.env.PATH,
   DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/primid_boot_test',
   HMAC_SECRET: 'a'.repeat(64),
-  ALE_ENCRYPTION_KEY: 'b'.repeat(64),
 };
 
 const children = [];
@@ -34,7 +38,7 @@ function spawnListener(port, overrides) {
     'REDDIT_SOCIAL_LISTENER', 'TELEGRAM_SOCIAL_LISTENER', 'TELEGRAM_LISTENER_MODE',
     'PHONE_LISTENER_PROVIDER', 'TELEGRAM_BOT_TOKEN', 'TELEGRAM_WEBHOOK_SECRET',
     'REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET', 'REDDIT_REFRESH_TOKEN',
-    'ANDROID_FORWARDER_HMAC_SECRET', 'ALE_KMS_KEY_ARN', 'NODE_ENV',
+    'ANDROID_FORWARDER_HMAC_SECRET', 'ALE_KMS_KEY_ARN', 'ALE_ENCRYPTION_KEY', 'NODE_ENV',
   ]) {
     if (!(key in env)) delete env[key];
   }
@@ -123,6 +127,27 @@ test('all flags off: server binds $PORT, /healthz is 200, no adapters active', a
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body, { status: 'ok', adapters: { telegram: 'off', phone: 'off' } });
   assert.equal(child.exitCode, null, `process should still be running; stderr: ${getOutput().stderr}`);
+
+  child.kill('SIGKILL');
+  await exited;
+});
+
+// Regression test for audit finding F2: the listener's only reachable crypto
+// operation is computeHmac() (via challenge.service.js) — encrypt()/decrypt()
+// are never called anywhere in this service's dependency graph, so requiring
+// ALE_ENCRYPTION_KEY/ALE_KMS_KEY_ARN at boot was strictly over-strict. This
+// spawns with genuinely neither var present (not merely empty-string) and
+// confirms the process still comes up healthy.
+test('boots with no ALE vars set at all (F2: ALE is not boot-fatal for this service)', async () => {
+  const port = 8196;
+  const { child, exited, getOutput } = spawnListener(port, {});
+
+  const res = await waitForHealthz(port, 5000);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { status: 'ok', adapters: { telegram: 'off', phone: 'off' } });
+  assert.equal(child.exitCode, null, `process should still be running; stderr: ${getOutput().stderr}`);
+  assert.doesNotMatch(getOutput().stderr, /ALE_ENCRYPTION_KEY|ALE_KMS_KEY_ARN/);
 
   child.kill('SIGKILL');
   await exited;
