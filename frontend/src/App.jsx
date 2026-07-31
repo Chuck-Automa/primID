@@ -1,6 +1,16 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import Onboarding from './pages/Onboarding';
+import Profile from './pages/Profile';
+import Attestations from './pages/Attestations';
+import SocialAccounts from './pages/SocialAccounts';
+import OAuthVerify from './pages/OAuthVerify';
+import Lookup from './pages/Lookup';
+import LookupResult from './pages/LookupResult';
+import ProfileCard from './pages/ProfileCard';
+import Navbar from './components/Navbar';
+import DeleteAccount from './pages/DeleteAccount';
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -26,17 +36,6 @@ class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
-
-import Onboarding from './pages/Onboarding';
-import Profile from './pages/Profile';
-import Attestations from './pages/Attestations';
-import SocialAccounts from './pages/SocialAccounts';
-import OAuthVerify from './pages/OAuthVerify';
-import Lookup from './pages/Lookup';
-import LookupResult from './pages/LookupResult';
-import ProfileCard from './pages/ProfileCard';
-import Navbar from './components/Navbar';
-import DeleteAccount from './pages/DeleteAccount';
 
 function RequireAuth({ children }) {
   const { user, isLoading } = useAuth();

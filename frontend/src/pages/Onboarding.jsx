@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import OTPForm from '../components/OTPForm';
 import api from '../services/api';
@@ -58,7 +58,7 @@ export default function Onboarding() {
   };
 
   // Registration/login via OAuth — routes through /api/auth/register (no auth required)
-  const handleOAuth = async (provider, token) => {
+  const handleOAuth = useCallback(async (provider, token) => {
     setOauthError('');
     setOauthLoading(true);
     try {
@@ -70,7 +70,7 @@ export default function Onboarding() {
     } finally {
       setOauthLoading(false);
     }
-  };
+  }, [login, navigate]);
 
   // Initialise Google token client (scope: openid only).
   // Access token flow — no code exchange, no client secret required.
@@ -98,7 +98,7 @@ export default function Onboarding() {
         return () => script.removeEventListener('load', initGoogle);
       }
     }
-  }, []);
+  }, [handleOAuth]);
 
   return (
     <div style={containerStyle}>

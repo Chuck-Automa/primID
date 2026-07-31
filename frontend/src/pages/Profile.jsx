@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import TierBadge from '../components/TierBadge';
 import api from '../services/api';
 import { PLATFORMS } from '../data/platforms';
@@ -16,9 +16,6 @@ const sectionStyle = {
   borderRadius: '10px',
 };
 
-const labelStyle = { fontSize: '12px', color: '#888', textTransform: 'uppercase', letterSpacing: '0.5px' };
-const valueStyle = { fontSize: '15px', fontWeight: 500, marginTop: '4px' };
-
 const upgradeCardStyle = {
   padding: '16px',
   background: '#eaf4fb',
@@ -29,7 +26,6 @@ const upgradeCardStyle = {
 
 export default function Profile() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { logout } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import COUNTRIES, { flagEmoji } from '../data/countries';
@@ -101,6 +101,9 @@ export default function OTPForm({ onSuccess }) {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
+    // login/onSuccess intentionally excluded: polling should key off step/challengeId only,
+    // not restart when a parent re-render gives these a new identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, challengeId]);
 
   if (step === 'phone') {

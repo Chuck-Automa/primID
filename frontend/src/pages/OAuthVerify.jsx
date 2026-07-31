@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -33,7 +33,7 @@ export default function OAuthVerify() {
   const [error, setError] = useState('');
   const googleClientRef = useRef(null);
 
-  const handleOAuth = async (provider, token) => {
+  const handleOAuth = useCallback(async (provider, token) => {
     setError('');
     setLoading(true);
     try {
@@ -45,7 +45,7 @@ export default function OAuthVerify() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [login, navigate]);
 
   // Initialise Google token client (scope: openid only).
   // Access token flow — no code exchange, no client secret required.
@@ -73,7 +73,7 @@ export default function OAuthVerify() {
         return () => script.removeEventListener('load', initGoogle);
       }
     }
-  }, []);
+  }, [handleOAuth]);
 
   return (
     <div style={containerStyle}>
