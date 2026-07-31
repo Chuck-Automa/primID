@@ -94,21 +94,18 @@ if (process.env.TELEGRAM_SOCIAL_LISTENER === 'true' && process.env.TELEGRAM_LIST
   console.log('[listener] Telegram polling active.');
 }
 
-// A shared HTTP server is needed whenever any webhook-delivered adapter is
-// active — currently the Android phone gateway or Telegram in webhook mode.
-// app.js's own mount functions (phoneAdapters.mount, telegramAdapter.mount)
-// each self-gate on their own env vars, so calling both unconditionally here
-// is safe — only the active one(s) register routes.
-const needsHttpServer =
-  process.env.PHONE_LISTENER_PROVIDER === 'android' ||
-  (process.env.TELEGRAM_SOCIAL_LISTENER === 'true' && process.env.TELEGRAM_LISTENER_MODE === 'webhook');
-
-if (needsHttpServer) {
-  const app = require('./app');
-  const PORT = process.env.PORT || process.env.LISTENER_WEBHOOK_PORT || 8090;
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[listener] Webhook server running on port ${PORT}`);
-  });
-}
+// The HTTP server binds unconditionally now — Render only marks a web service
+// healthy if it binds $PORT, and that must hold regardless of which
+// adapters/flags are active (see CLAUDE_ENVIRONMENTS.md Render service
+// topology trap #1: with everything defaulted off, the old conditional bind
+// left the process alive but never marked healthy). app.js's own mount
+// functions (phoneAdapters.mount, telegramAdapter.mount) still self-gate on
+// their own env vars, so requiring app.js unconditionally is safe — only the
+// active adapter(s) register routes; /healthz always responds regardless.
+const app = require('./app');
+const PORT = process.env.PORT || process.env.LISTENER_WEBHOOK_PORT || 8090;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`[listener] HTTP server running on port ${PORT}`);
+});
 
 console.log('[listener] primid-social-listener started.');
