@@ -1,7 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const { normalizePhone } = require('../../../backend/src/shared/utils/crypto.util');
-const challengeService = require('../../services/challenge.service');
+const challengeService = require('../../../backend/src/shared/services/challenge.service');
 const heartbeatService = require('../../services/heartbeat.service');
 
 // In-memory dedup on payload.messageId — the app retries on non-2xx and slow

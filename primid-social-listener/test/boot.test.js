@@ -191,3 +191,39 @@ test('invalid TELEGRAM_LISTENER_MODE: process exits 1 and never binds a port', a
   // Belt-and-suspenders: confirm nothing is actually listening on the port.
   await assert.rejects(() => getJson(port, '/healthz', 500));
 });
+
+// Regression test for audit finding F4: phone.android.adapter.js required a
+// pre-relocation path ('../../services/challenge.service') that no longer
+// exists, so PHONE_LISTENER_PROVIDER=android crashed at boot with
+// MODULE_NOT_FOUND the instant phoneAdapters.mount(app) required it. This
+// only asserts module resolution succeeds and the server comes up — real
+// gateway connectivity (or DB connectivity, for that matter) failing is fine
+// and expected with the dummy env used here.
+test('PHONE_LISTENER_PROVIDER=android: boots past module resolution and binds $PORT', async () => {
+  const port = 8195;
+  const { child, exited, getOutput } = spawnListener(port, {
+    PHONE_LISTENER_PROVIDER: 'android',
+    ANDROID_FORWARDER_HMAC_SECRET: 'dummy-forwarder-secret',
+  });
+
+  const res = await waitForHealthz(port, 5000);
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body, { status: 'ok', adapters: { telegram: 'off', phone: 'android' } });
+  assert.doesNotMatch(getOutput().stderr, /MODULE_NOT_FOUND/);
+  assert.equal(child.exitCode, null, `process should still be running; stderr: ${getOutput().stderr}`);
+
+  // Confirm the android webhook route was actually mounted (401 on missing
+  // signature, not a 404, which would mean mount() silently didn't run).
+  const webhookRes = await new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: '127.0.0.1', port, path: '/webhooks/phone/android', method: 'POST', timeout: 2000 },
+      (r) => resolve(r)
+    );
+    req.on('error', reject);
+    req.end('{}');
+  });
+  assert.equal(webhookRes.statusCode, 401);
+
+  child.kill('SIGKILL');
+  await exited;
+});

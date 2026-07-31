@@ -56,10 +56,6 @@ if (process.env.PHONE_LISTENER_PROVIDER === 'android') {
       process.exit(1);
     }
   }
-  // Not fatal: unset just means the stub-fallback response omits maintenanceNotice.
-  if (!process.env.PHONE_MAINTENANCE_NOTICE) {
-    console.warn('[listener] PHONE_MAINTENANCE_NOTICE is unset — stub-fallback responses will omit maintenanceNotice.');
-  }
 }
 
 const prisma          = require('../backend/src/shared/db/prisma');

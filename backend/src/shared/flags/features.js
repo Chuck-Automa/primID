@@ -8,6 +8,4 @@ module.exports = {
   EAS: false,
   AGENT_DELEGATION: false,
   EIN_VERIFICATION: false,
-  REDDIT_SOCIAL_LISTENER: false,
-  TELEGRAM_SOCIAL_LISTENER: false,
 };
