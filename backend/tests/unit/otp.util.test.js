@@ -23,26 +23,26 @@ describe('generateCode', () => {
 });
 
 describe('isOnStagingWhitelist', () => {
-  test('returns true for any number outside staging (dev/prod)', () => {
+  test('returns true for any number outside development (unset/production)', () => {
     expect(isOnStagingWhitelist('+10000000000')).toBe(true);
     expect(isOnStagingWhitelist('+19999999999')).toBe(true);
   });
 
-  test('returns true for a whitelisted number in staging', () => {
-    process.env.NODE_ENV = 'staging';
+  test('returns true for a whitelisted number in development', () => {
+    process.env.NODE_ENV = 'development';
     process.env.STAGING_PHONE_WHITELIST = '+12025550101,+12025550102';
     expect(isOnStagingWhitelist('+12025550101')).toBe(true);
     expect(isOnStagingWhitelist('+12025550102')).toBe(true);
   });
 
-  test('returns false for a non-whitelisted number in staging', () => {
-    process.env.NODE_ENV = 'staging';
+  test('returns false for a non-whitelisted number in development', () => {
+    process.env.NODE_ENV = 'development';
     process.env.STAGING_PHONE_WHITELIST = '+12025550101';
     expect(isOnStagingWhitelist('+19995550000')).toBe(false);
   });
 
-  test('returns false for all numbers when whitelist is empty in staging', () => {
-    process.env.NODE_ENV = 'staging';
+  test('returns false for all numbers when whitelist is empty in development', () => {
+    process.env.NODE_ENV = 'development';
     process.env.STAGING_PHONE_WHITELIST = '';
     expect(isOnStagingWhitelist('+12025550101')).toBe(false);
   });

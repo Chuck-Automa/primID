@@ -16,10 +16,15 @@ function generateCode(length = 8) {
 }
 
 // Returns true if the number is allowed to initiate a challenge.
-// In staging: only STAGING_PHONE_WHITELIST numbers pass.
-// In dev/prod: always true (no restriction).
+// Gated on NODE_ENV === 'development' — this project runs a single
+// non-production deployment (the Android SMS Gateway interim environment),
+// labeled 'development' rather than 'staging' to keep the deployed NODE_ENV
+// value consistent across services. Only STAGING_PHONE_WHITELIST numbers pass
+// in that environment; every other NODE_ENV value (including 'production')
+// is unrestricted. STAGING_PHONE_WHITELIST itself is unrenamed — it's an
+// unrelated env var name, not the NODE_ENV gate this function checks.
 function isOnStagingWhitelist(phoneNumber) {
-  if (process.env.NODE_ENV !== 'staging') return true;
+  if (process.env.NODE_ENV !== 'development') return true;
   const whitelist = (process.env.STAGING_PHONE_WHITELIST || '')
     .split(',')
     .map((p) => p.trim())

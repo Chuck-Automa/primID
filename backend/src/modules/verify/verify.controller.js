@@ -55,11 +55,11 @@ const initiatePhone = async (req, res, next) => {
       return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: 'Please enter a valid phone number.' });
     }
 
-    // isOnStagingWhitelist() returns true unconditionally when NODE_ENV !== 'staging'
+    // isOnStagingWhitelist() returns true unconditionally when NODE_ENV !== 'development'
     // (see otp.util.js) — an intentional, tested contract that predates this feature.
-    // Branches 2 and 3 below are therefore only reachable when NODE_ENV=staging;
-    // outside staging every number is treated as whitelisted (branch 1), matching
-    // the "dev: all stubs" / "prod: no live phone verification yet" posture. The
+    // Branches 2 and 3 below are therefore only reachable when NODE_ENV=development;
+    // outside that value every number is treated as whitelisted (branch 1), matching
+    // the "unset: all stubs" / "prod: no live phone verification yet" posture. The
     // NODE_ENV=production check inside branch 3 is defensive code for once Telnyx
     // activates in prod (Sprint 2) and this interaction is revisited.
     const whitelisted = isOnStagingWhitelist(normalized);

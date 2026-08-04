@@ -80,8 +80,8 @@ describe('POST /api/verify/phone/initiate', () => {
     expect(prisma.user.create).toHaveBeenCalledTimes(1);
   });
 
-  test('403 DEMO_RESTRICTED — non-whitelisted number in staging', async () => {
-    process.env.NODE_ENV               = 'staging';
+  test('403 DEMO_RESTRICTED — non-whitelisted number in development', async () => {
+    process.env.NODE_ENV               = 'development';
     process.env.STAGING_PHONE_WHITELIST = '+12025550101';
 
     const res = await request(app)
@@ -92,9 +92,9 @@ describe('POST /api/verify/phone/initiate', () => {
     expect(res.body.code).toBe('DEMO_RESTRICTED');
   });
 
-  test('200 — whitelisted number in staging receives code (auto-resolve queued)', async () => {
+  test('200 — whitelisted number in development receives code (auto-resolve queued)', async () => {
     const WHITELISTED = '+12025550101';
-    process.env.NODE_ENV                = 'staging';
+    process.env.NODE_ENV                = 'development';
     process.env.STAGING_PHONE_WHITELIST = WHITELISTED;
 
     prisma.user.findUnique.mockResolvedValueOnce(makeUser({ phoneNumber: `enc::${WHITELISTED}` }));
@@ -111,7 +111,7 @@ describe('POST /api/verify/phone/initiate', () => {
 
   test('200 — flag on, fresh heartbeat routes live, no maintenanceNotice', async () => {
     const LIVE_NUMBER = '+12025559999';
-    process.env.NODE_ENV                     = 'staging';
+    process.env.NODE_ENV                     = 'development';
     process.env.STAGING_PHONE_WHITELIST      = '+12025550101';
     process.env.FEATURE_PHONE_VERIFICATION_LIVE = 'true';
     process.env.PHONE_LISTENER_PROVIDER      = 'android';
@@ -135,14 +135,15 @@ describe('POST /api/verify/phone/initiate', () => {
   // NOTE: no integration test for "flag on, stale heartbeat, NODE_ENV=production"
   // (the branch that returns 503 PHONE_VERIFICATION_UNAVAILABLE) — see the comment
   // above that branch in verify.controller.js. isOnStagingWhitelist() returns true
-  // unconditionally when NODE_ENV !== 'staging' (see otp.util.test.js's own
-  // "returns true for any number outside staging (dev/prod)" contract test), so
-  // branches 2/3 of /initiate are only reachable when NODE_ENV=staging — there is
-  // currently no real request that reaches the production sub-branch end-to-end.
+  // unconditionally when NODE_ENV !== 'development' (see otp.util.test.js's own
+  // "returns true for any number outside development (unset/production)" contract
+  // test), so branches 2/3 of /initiate are only reachable when NODE_ENV=development
+  // — there is currently no real request that reaches the production sub-branch
+  // end-to-end.
 
   test('200 — flag on, stale heartbeat, non-production degrades to stub-fallback with maintenanceNotice', async () => {
     const LIVE_NUMBER = '+12025559997';
-    process.env.NODE_ENV                     = 'staging';
+    process.env.NODE_ENV                     = 'development';
     process.env.STAGING_PHONE_WHITELIST      = '+12025550101';
     process.env.FEATURE_PHONE_VERIFICATION_LIVE = 'true';
     process.env.PHONE_LISTENER_PROVIDER      = 'android';
