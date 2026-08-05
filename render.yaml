@@ -109,6 +109,12 @@ services:
     startCommand: node primid-social-listener/index.js
     healthCheckPath: /health
     envVars:
+      # Not 'production' — the boot guard in index.js exits 1 on
+      # NODE_ENV=production + PHONE_LISTENER_PROVIDER=android (Android SMS
+      # Gateway is explicitly prohibited in prod). This deployment runs the
+      # Android interim, so it needs a non-production value here, matching
+      # primid-backend's NODE_ENV above and otp.util.js's isOnStagingWhitelist()
+      # gate (backend/src/shared/utils/otp.util.js).
       - key: NODE_ENV
         value: development
       - key: DATABASE_URL
