@@ -167,7 +167,7 @@ export default function SocialVerifyPanel({ account, onVerified, onClose }) {
     <div style={panelStyle}>
       <p style={{ marginBottom: '8px', color: '#666' }}>
         {account.platform === 'telegram'
-          ? <>Send this code to <strong>@primidbot</strong> on Telegram:</>
+          ? <>Send this code to <strong>@primid_bot</strong> on Telegram:</>
           : <>Create a <strong>public</strong> gist whose description or filename contains this code:</>}
       </p>
 
@@ -194,7 +194,7 @@ export default function SocialVerifyPanel({ account, onVerified, onClose }) {
 
       {account.platform === 'telegram' ? (
         <>
-          <a href="https://t.me/primidbot" target="_blank" rel="noreferrer" style={linkBtnStyle}>
+          <a href="https://t.me/primid_bot" target="_blank" rel="noreferrer" style={linkBtnStyle}>
             Open Telegram
           </a>
           <p style={{ color: '#666', marginTop: '6px' }}>Waiting for verification…</p>
