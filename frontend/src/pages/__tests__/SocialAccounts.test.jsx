@@ -135,6 +135,56 @@ describe('SocialAccounts page', () => {
     await waitFor(() => expect(screen.getByText(/Invalid platform/i)).toBeInTheDocument());
   });
 
+  test('shows "Verified on MM/DD/YYYY at HH:MM" and a Re-verify button once verifiedAt is set', async () => {
+    api.get = jest.fn().mockResolvedValue({
+      data: {
+        accounts: [
+          {
+            id: 'acc-1',
+            platform: 'github',
+            handle: 'chuck-dev',
+            isPublic: true,
+            verifiedAt: '2026-03-05T14:07:00.000Z',
+          },
+        ],
+      },
+    });
+    renderSocialAccounts();
+    await waitFor(() => expect(screen.getByText('GitHub')).toBeInTheDocument());
+
+    expect(screen.getByText(/^✓ Verified on \d{2}\/\d{2}\/\d{4} at \d{2}:\d{2}$/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Verifiable$/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /re-verify/i })).toBeInTheDocument();
+  });
+
+  test('clicking Re-verify opens the verification panel', async () => {
+    api.get = jest.fn().mockResolvedValue({
+      data: {
+        accounts: [
+          {
+            id: 'acc-1',
+            platform: 'github',
+            handle: 'chuck-dev',
+            isPublic: true,
+            verifiedAt: '2026-03-05T14:07:00.000Z',
+          },
+        ],
+      },
+    });
+    api.post = jest.fn().mockResolvedValue({
+      data: { code: 'ABC123', expiresAt: new Date(Date.now() + 60000).toISOString() },
+    });
+
+    renderSocialAccounts();
+    await waitFor(() => expect(screen.getByText('GitHub')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /re-verify/i }));
+
+    await waitFor(() =>
+      expect(api.post).toHaveBeenCalledWith('/api/social-accounts/acc-1/verify/initiate')
+    );
+  });
+
   test('Remove button calls patch remove API and refreshes', async () => {
     api.get = jest.fn().mockResolvedValue({
       data: {

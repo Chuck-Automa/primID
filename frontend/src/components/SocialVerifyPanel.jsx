@@ -94,10 +94,14 @@ export default function SocialVerifyPanel({ account, onVerified, onClose }) {
 
   // Telegram (Category A): poll the account list for verifiedAt, mirroring
   // OTPForm's phone-status poll pattern — there is no dedicated status
-  // endpoint since verification arrives asynchronously via DM.
+  // endpoint since verification arrives asynchronously via DM. Compare
+  // against the timestamp captured when the panel opened (not just
+  // truthiness) so a re-verify of an already-verified account doesn't
+  // resolve on the first poll before the new code has actually landed.
   useEffect(() => {
     if (account.platform !== 'telegram' || phase !== 'pending' || !expiresAt) return;
 
+    const priorVerifiedAt = account.verifiedAt || null;
     const ttlMs = new Date(expiresAt).getTime() - Date.now();
     const startTime = Date.now();
 
@@ -111,7 +115,7 @@ export default function SocialVerifyPanel({ account, onVerified, onClose }) {
       try {
         const resp = await api.get('/api/social-accounts');
         const updated = resp.data.accounts.find((a) => a.id === account.id);
-        if (updated?.verifiedAt) {
+        if (updated?.verifiedAt && updated.verifiedAt !== priorVerifiedAt) {
           clearInterval(interval);
           onVerified();
         }
@@ -121,7 +125,7 @@ export default function SocialVerifyPanel({ account, onVerified, onClose }) {
     }, POLL_INTERVAL_MS);
 
     return () => clearInterval(interval);
-  }, [account.id, account.platform, phase, expiresAt, onVerified]);
+  }, [account.id, account.platform, phase, expiresAt, onVerified, account.verifiedAt]);
 
   const handleCrawl = async () => {
     setCrawling(true);

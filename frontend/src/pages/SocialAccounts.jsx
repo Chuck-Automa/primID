@@ -20,6 +20,13 @@ const inputStyle = {
   marginBottom: '10px',
 };
 
+function formatVerifiedAt(isoString) {
+  const d = new Date(isoString);
+  const date = `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}/${d.getFullYear()}`;
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${date} at ${time}`;
+}
+
 const accountRowStyle = {
   display: 'flex',
   justifyContent: 'space-between',
@@ -191,13 +198,16 @@ export default function SocialAccounts() {
                   <div>
                     <p style={{ fontSize: '14px', fontWeight: 600 }}>{platformLabel}</p>
                     <p style={{ fontSize: '13px', color: '#666' }}>{a.handle}</p>
-                    {a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>}
-                    {canVerify && a.verifiedAt && (
-                      <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>✓ Verified</p>
+                    {canVerify && a.verifiedAt ? (
+                      <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>
+                        ✓ Verified on {formatVerifiedAt(a.verifiedAt)}
+                      </p>
+                    ) : (
+                      a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>
                     )}
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    {canVerify && !a.verifiedAt && (
+                    {canVerify && (
                       <button
                         onClick={() => setVerifyingId(verifyingId === a.id ? null : a.id)}
                         style={{
@@ -205,7 +215,7 @@ export default function SocialAccounts() {
                           fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
                         }}
                       >
-                        {verifyingId === a.id ? 'Cancel' : 'Verify'}
+                        {verifyingId === a.id ? 'Cancel' : a.verifiedAt ? 'Re-verify' : 'Verify'}
                       </button>
                     )}
                     {canShare && (
