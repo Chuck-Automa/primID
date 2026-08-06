@@ -31,11 +31,24 @@ const accountRowStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
+  flexWrap: 'wrap',
+  rowGap: '8px',
   padding: '12px 16px',
   border: '1px solid #eee',
   borderRadius: '8px',
   marginBottom: '8px',
   background: '#fff',
+};
+
+const actionBtnStyle = {
+  background: 'none',
+  border: '1px solid #ddd',
+  fontSize: '12px',
+  padding: '6px 10px',
+  borderRadius: '6px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  flexShrink: 0,
 };
 
 export default function SocialAccounts() {
@@ -206,14 +219,11 @@ export default function SocialAccounts() {
                       a.isPublic && <p style={{ fontSize: '11px', color: '#2d6a4f', marginTop: '2px' }}>Verifiable</p>
                     )}
                   </div>
-                  <div style={{ display: 'flex', gap: '6px' }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                     {canVerify && (
                       <button
                         onClick={() => setVerifyingId(verifyingId === a.id ? null : a.id)}
-                        style={{
-                          background: 'none', border: '1px solid #ddd', color: '#1a1a2e',
-                          fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                        }}
+                        style={{ ...actionBtnStyle, color: '#1a1a2e' }}
                       >
                         {verifyingId === a.id ? 'Cancel' : a.verifiedAt ? 'Re-verify' : 'Verify'}
                       </button>
@@ -221,20 +231,14 @@ export default function SocialAccounts() {
                     {canShare && (
                       <button
                         onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
-                        style={{
-                          background: 'none', border: '1px solid #ddd', color: '#457b9d',
-                          fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                        }}
+                        style={{ ...actionBtnStyle, color: '#457b9d' }}
                       >
                         ⬆ Share
                       </button>
                     )}
                     <button
                       onClick={() => handleDelete(a.id)}
-                      style={{
-                        background: 'none', border: '1px solid #eee', color: '#c0392b',
-                        fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                      }}
+                      style={{ ...actionBtnStyle, border: '1px solid #eee', color: '#c0392b' }}
                     >
                       Remove
                     </button>
