@@ -1,5 +1,6 @@
 const prisma = require('../../shared/db/prisma');
 const { computeHmac } = require('../../shared/utils/crypto.util');
+const { canonicalizeHandle } = require('../../shared/utils/handleCanonicalization.util');
 
 const VALID_PLATFORMS = [
   'facebook', 'x', 'signal', 'telegram', 'linkedin', 'instagram',
@@ -42,8 +43,23 @@ const lookupHandle = async (req, res, next) => {
       return res.status(400).json({ success: false, message: `Unknown platform: ${platform}` });
     }
 
+    // handle_hmac was computed on the canonicalized form at write time
+    // (addSocialAccount) — canonicalize here too, or an as-typed variant
+    // (leading @, different case, profile URL) never matches. A handle that
+    // fails canonicalization can't match any stored row either way, so it
+    // falls through to the same 404 as a genuine miss.
+    let canonicalHandle;
+    try {
+      canonicalHandle = canonicalizeHandle(platform, handle);
+    } catch {
+      return res.status(404).json({
+        success: false,
+        message: `No primID user found with ${platform} handle "${handle}".`,
+      });
+    }
+
     const account = await prisma.socialAccount.findFirst({
-      where: { platform, handleHmac: computeHmac(handle), removedAt: null },
+      where: { platform, handleHmac: computeHmac(canonicalHandle), removedAt: null },
     });
 
     if (!account) {
@@ -136,8 +152,16 @@ const listPublicAttestations = async (req, res, next) => {
       return res.status(400).json({ success: false, message: `Unknown platform: ${platform}` });
     }
 
+    // See lookupHandle above — handle_hmac is keyed on the canonicalized form.
+    let canonicalHandle;
+    try {
+      canonicalHandle = canonicalizeHandle(platform, handle);
+    } catch {
+      return res.status(404).json({ success: false, message: 'Handle not found.' });
+    }
+
     const account = await prisma.socialAccount.findFirst({
-      where: { platform, handleHmac: computeHmac(handle), removedAt: null },
+      where: { platform, handleHmac: computeHmac(canonicalHandle), removedAt: null },
     });
 
     if (!account) {

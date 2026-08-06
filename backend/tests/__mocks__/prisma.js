@@ -29,7 +29,8 @@ const prisma = {
     delete:     jest.fn(),
   },
   socialHandleConflict: {
-    create: jest.fn(),
+    create:   jest.fn(),
+    findMany: jest.fn(),
   },
   refreshToken: {
     create:     jest.fn(),
