@@ -107,7 +107,7 @@ export default function Profile() {
   return (
     <div style={containerStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 700 }}>Your Identity</h1>
+        <h1 style={{ fontSize: '22px', fontWeight: 700 }}>Profile</h1>
         <button
           onClick={handleLogout}
           style={{ background: 'none', border: 'none', color: '#888', fontSize: '14px', cursor: 'pointer' }}
@@ -185,6 +185,7 @@ export default function Profile() {
             description: 'SMS one-time passcode',
             completed: user.phoneVerified,
             date: user.phoneVerifiedAt,
+            link: '/verify/phone',
           },
           {
             tier: 2,
@@ -217,14 +218,15 @@ export default function Profile() {
         ].map(({ tier, symbol, color, name, description, completed, date, link }) => (
           <div
             key={tier}
-            onClick={() => !completed && link && navigate(link)}
+            data-testid={`tier-row-${tier}`}
+            onClick={() => link && navigate(link)}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '12px',
               padding: '10px 0',
               borderBottom: '1px solid #eee',
-              cursor: !completed && link ? 'pointer' : 'default',
+              cursor: link ? 'pointer' : 'default',
             }}
           >
             <span style={{ fontSize: '20px', color: completed ? color : '#ccc', width: '20px', textAlign: 'center' }}>
@@ -239,7 +241,10 @@ export default function Profile() {
             <div style={{ textAlign: 'right' }}>
               {completed ? (
                 <>
-                  <span style={{ fontSize: '12px', color: '#2d6a4f', fontWeight: 600 }}>✓ Done</span>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px' }}>
+                    <span style={{ fontSize: '12px', color: '#2d6a4f', fontWeight: 600 }}>✓ Done</span>
+                    {link && <span style={{ fontSize: '13px', color: '#457b9d' }}>›</span>}
+                  </span>
                   {date && (
                     <p style={{ fontSize: '10px', color: '#aaa', margin: '2px 0 0' }}>
                       {new Date(date).toLocaleDateString()}
@@ -262,11 +267,17 @@ export default function Profile() {
           <h2 style={{ fontSize: '15px', fontWeight: 600, marginBottom: '14px' }}>Unlock higher trust</h2>
 
           {(user.currentTier === null || user.currentTier === 3) && (
-            <div style={upgradeCardStyle}>
-              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 2 — Connect Google or Apple</p>
-              <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
-                Sign in with Google or Apple to reach Tier 2 and extend your session to 90 days.
-              </p>
+            <div
+              onClick={() => navigate('/verify/oauth')}
+              style={{ ...upgradeCardStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
+            >
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 2 — Connect Google or Apple</p>
+                <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+                  Sign in with Google or Apple to reach Tier 2 and extend your session to 90 days.
+                </p>
+              </div>
+              <span style={{ fontSize: '16px', color: '#457b9d', flexShrink: 0 }}>›</span>
             </div>
           )}
 
@@ -310,23 +321,18 @@ export default function Profile() {
             return (
               <div
                 key={a.id}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #eee' }}
+                onClick={() => canShare && navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 0', borderBottom: '1px solid #eee',
+                  cursor: canShare ? 'pointer' : 'default',
+                }}
               >
                 <div>
                   <p style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>{platformLabel}</p>
                   <p style={{ fontSize: '12px', color: '#666', margin: '2px 0 0' }}>{a.handle}</p>
                 </div>
-                {canShare && (
-                  <button
-                    onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
-                    style={{
-                      background: 'none', border: '1px solid #ddd', color: '#457b9d',
-                      fontSize: '12px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                    }}
-                  >
-                    ⬆ Share
-                  </button>
-                )}
+                {canShare && <span style={{ fontSize: '16px', color: '#457b9d' }}>›</span>}
               </div>
             );
           })

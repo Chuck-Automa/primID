@@ -6,6 +6,7 @@ const pages = [
   { path: '/profile', label: 'Profile' },
   { path: '/attestations', label: 'Attestations' },
   { path: '/social', label: 'Social Accounts' },
+  { path: '/lookup', label: 'Lookup Handle' },
 ];
 
 export default function Navbar() {
