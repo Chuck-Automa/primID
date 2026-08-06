@@ -205,6 +205,7 @@ export default function Profile() {
             description: 'One qualifying verification (QV)',
             completed: user.zkPassportVerified || user.zkEmailVerified || user.pohVerified || user.ecointerVerified,
             date: user.zkPassportVerifiedAt || user.zkEmailVerifiedAt || user.pohVerifiedAt || user.ecointerVerifiedAt,
+            link: '/verify/qv',
           },
           {
             tier: 0,
@@ -214,6 +215,7 @@ export default function Profile() {
             description: 'Two qualifying verifications (QVs)',
             completed: user.currentTier === 0,
             date: null,
+            link: '/verify/qv',
           },
         ].map(({ tier, symbol, color, name, description, completed, date, link }) => (
           <div
@@ -282,20 +284,32 @@ export default function Profile() {
           )}
 
           {user.currentTier >= 2 && (
-            <div style={upgradeCardStyle}>
-              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 1 — Add a qualifying verification</p>
-              <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
-                Complete one qualifying verification (QV) to reach Tier 1. (Available in Sprint 2)
-              </p>
+            <div
+              onClick={() => navigate('/verify/qv')}
+              style={{ ...upgradeCardStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
+            >
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 1 — Add a qualifying verification</p>
+                <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+                  Complete one qualifying verification (QV) to reach Tier 1. (Available in Sprint 2)
+                </p>
+              </div>
+              <span style={{ fontSize: '16px', color: '#457b9d', flexShrink: 0 }}>›</span>
             </div>
           )}
 
           {(user.currentTier === 1) && (
-            <div style={upgradeCardStyle}>
-              <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 0 — Add a second qualifying verification</p>
-              <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
-                Two qualifying verifications (QVs) earn Full Personhood. (Available in Sprint 2)
-              </p>
+            <div
+              onClick={() => navigate('/verify/qv')}
+              style={{ ...upgradeCardStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
+            >
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: 600 }}>Tier 0 — Add a second qualifying verification</p>
+                <p style={{ fontSize: '13px', color: '#555', marginTop: '4px' }}>
+                  Two qualifying verifications (QVs) earn Full Personhood. (Available in Sprint 2)
+                </p>
+              </div>
+              <span style={{ fontSize: '16px', color: '#457b9d', flexShrink: 0 }}>›</span>
             </div>
           )}
         </div>

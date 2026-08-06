@@ -7,6 +7,7 @@ import Attestations from './pages/Attestations';
 import SocialAccounts from './pages/SocialAccounts';
 import OAuthVerify from './pages/OAuthVerify';
 import PhoneVerify from './pages/PhoneVerify';
+import QVLanding from './pages/QVLanding';
 import Lookup from './pages/Lookup';
 import LookupResult from './pages/LookupResult';
 import ProfileCard from './pages/ProfileCard';
@@ -75,6 +76,7 @@ export default function App() {
               <Route path="/social" element={<RequireAuth><SocialAccounts /></RequireAuth>} />
               <Route path="/verify/oauth" element={<RequireAuth><OAuthVerify /></RequireAuth>} />
               <Route path="/verify/phone" element={<RequireAuth><PhoneVerify /></RequireAuth>} />
+              <Route path="/verify/qv" element={<RequireAuth><QVLanding /></RequireAuth>} />
               <Route path="/lookup" element={<Lookup />} />
               <Route path="/lookup/:platform/:handle" element={<LookupResult />} />
               <Route path="/id/:platform/:handle" element={<ProfileCard />} />
