@@ -130,10 +130,10 @@ describe('Profile page', () => {
     await waitFor(() => screen.getByRole('heading', { name: /^Profile$/i }));
 
     fireEvent.click(screen.getByTestId('tier-row-3'));
-    expect(mockNavigate).toHaveBeenCalledWith('/verify/phone');
+    expect(mockNavigate).toHaveBeenCalledWith('/verify/phone', { state: { from: '/profile' } });
 
     fireEvent.click(screen.getByTestId('tier-row-2'));
-    expect(mockNavigate).toHaveBeenCalledWith('/verify/oauth');
+    expect(mockNavigate).toHaveBeenCalledWith('/verify/oauth', { state: { from: '/profile' } });
   });
 
   test('clicking an incomplete tier row navigates to its verification screen', async () => {
@@ -142,7 +142,7 @@ describe('Profile page', () => {
     await waitFor(() => screen.getByRole('heading', { name: /^Profile$/i }));
 
     fireEvent.click(screen.getByTestId('tier-row-2'));
-    expect(mockNavigate).toHaveBeenCalledWith('/verify/oauth');
+    expect(mockNavigate).toHaveBeenCalledWith('/verify/oauth', { state: { from: '/profile' } });
   });
 
   test('clicking the Tier 2 upgrade card navigates to /verify/oauth', async () => {
@@ -151,7 +151,7 @@ describe('Profile page', () => {
     await waitFor(() => screen.getByText(/Tier 2 — Connect Google or Apple/i));
 
     fireEvent.click(screen.getByText(/Tier 2 — Connect Google or Apple/i));
-    expect(mockNavigate).toHaveBeenCalledWith('/verify/oauth');
+    expect(mockNavigate).toHaveBeenCalledWith('/verify/oauth', { state: { from: '/profile' } });
   });
 
   test('clicking a social handle listing navigates to its details page when shareable', async () => {
@@ -165,7 +165,7 @@ describe('Profile page', () => {
     await waitFor(() => screen.getByText('GitHub'));
 
     fireEvent.click(screen.getByText('GitHub'));
-    expect(mockNavigate).toHaveBeenCalledWith('/id/github/chuck-dev');
+    expect(mockNavigate).toHaveBeenCalledWith('/id/github/chuck-dev', { state: { from: '/profile' } });
   });
 
   test('social handle listing is not clickable for a Tier 3 user (cannot share)', async () => {

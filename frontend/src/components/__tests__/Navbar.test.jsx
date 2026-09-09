@@ -8,10 +8,11 @@ jest.mock('../../context/AuthContext', () => ({
 }));
 
 const mockNavigate = jest.fn();
+const mockUseLocation = jest.fn();
 jest.mock('react-router-dom', () => ({
   ...jest.requireActual('react-router-dom'),
   useNavigate: () => mockNavigate,
-  useLocation: () => ({ pathname: '/profile' }),
+  useLocation: () => mockUseLocation(),
 }));
 
 function renderNavbar() {
@@ -23,7 +24,10 @@ function renderNavbar() {
 }
 
 describe('Navbar', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseLocation.mockReturnValue({ pathname: '/profile', state: null });
+  });
 
   test('menu is closed by default', () => {
     renderNavbar();
@@ -51,5 +55,23 @@ describe('Navbar', () => {
     expect(screen.getByText('Profile')).toBeInTheDocument();
     expect(screen.getByText('Attestations')).toBeInTheDocument();
     expect(screen.getByText('Social Accounts')).toBeInTheDocument();
+  });
+
+  test('no back button when the route was not reached via a profile-page link', () => {
+    renderNavbar(); // default mock: state: null
+    expect(screen.queryByLabelText('Back')).not.toBeInTheDocument();
+  });
+
+  test('shows a back button when location.state.from is set', () => {
+    mockUseLocation.mockReturnValueOnce({ pathname: '/verify/oauth', state: { from: '/profile' } });
+    renderNavbar();
+    expect(screen.getByLabelText('Back')).toBeInTheDocument();
+  });
+
+  test('clicking the back button navigates to location.state.from', () => {
+    mockUseLocation.mockReturnValueOnce({ pathname: '/id/github/chuck-dev', state: { from: '/profile' } });
+    renderNavbar();
+    fireEvent.click(screen.getByLabelText('Back'));
+    expect(mockNavigate).toHaveBeenCalledWith('/profile');
   });
 });

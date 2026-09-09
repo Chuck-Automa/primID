@@ -221,7 +221,7 @@ export default function Profile() {
           <div
             key={tier}
             data-testid={`tier-row-${tier}`}
-            onClick={() => link && navigate(link)}
+            onClick={() => link && navigate(link, { state: { from: '/profile' } })}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -270,7 +270,7 @@ export default function Profile() {
 
           {(user.currentTier === null || user.currentTier === 3) && (
             <div
-              onClick={() => navigate('/verify/oauth')}
+              onClick={() => navigate('/verify/oauth', { state: { from: '/profile' } })}
               style={{ ...upgradeCardStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
             >
               <div>
@@ -285,7 +285,7 @@ export default function Profile() {
 
           {user.currentTier >= 2 && (
             <div
-              onClick={() => navigate('/verify/qv')}
+              onClick={() => navigate('/verify/qv', { state: { from: '/profile' } })}
               style={{ ...upgradeCardStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
             >
               <div>
@@ -300,7 +300,7 @@ export default function Profile() {
 
           {(user.currentTier === 1) && (
             <div
-              onClick={() => navigate('/verify/qv')}
+              onClick={() => navigate('/verify/qv', { state: { from: '/profile' } })}
               style={{ ...upgradeCardStyle, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}
             >
               <div>
@@ -322,7 +322,7 @@ export default function Profile() {
           <p style={{ fontSize: '13px', color: '#aaa' }}>
             No social accounts linked —{' '}
             <span
-              onClick={() => navigate('/social')}
+              onClick={() => navigate('/social', { state: { from: '/profile' } })}
               style={{ color: '#457b9d', cursor: 'pointer' }}
             >
               add them on the Social Accounts page
@@ -335,7 +335,7 @@ export default function Profile() {
             return (
               <div
                 key={a.id}
-                onClick={() => canShare && navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                onClick={() => canShare && navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`, { state: { from: '/profile' } })}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '10px 0', borderBottom: '1px solid #eee',

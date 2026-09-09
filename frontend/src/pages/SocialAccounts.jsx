@@ -230,7 +230,7 @@ export default function SocialAccounts() {
                     )}
                     {canShare && (
                       <button
-                        onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`)}
+                        onClick={() => navigate(`/id/${encodeURIComponent(a.platform)}/${encodeURIComponent(a.handle)}`, { state: { from: '/social' } })}
                         style={{ ...actionBtnStyle, color: '#457b9d' }}
                       >
                         ⬆ Share

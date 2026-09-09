@@ -14,6 +14,12 @@ export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  // Set by Profile.jsx's navigate(link, { state: { from: '/profile' } }) on
+  // every link it hands off to — shows a back button on whatever page the
+  // user landed on, pointing back to where they came from. Cleared on the
+  // next navigation that doesn't set it (e.g. a hard reload, or following
+  // the hamburger menu instead), so it only appears right after a profile-page click.
+  const backTo = location.state?.from;
 
   const go = (path) => {
     setOpen(false);
@@ -39,10 +45,30 @@ export default function Navbar() {
         zIndex: 200,
         boxSizing: 'border-box',
       }}>
-        {/* display_name shown to the left of the hamburger; null = nothing rendered */}
-        <span style={{ fontSize: '13px', fontWeight: 600, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
-          {user?.displayName || ''}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, overflow: 'hidden' }}>
+          {backTo && (
+            <button
+              onClick={() => navigate(backTo)}
+              aria-label="Back"
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '4px',
+                fontSize: '18px',
+                color: '#333',
+                lineHeight: 1,
+                flexShrink: 0,
+              }}
+            >
+              ←
+            </button>
+          )}
+          {/* display_name shown to the left of the hamburger; null = nothing rendered */}
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+            {user?.displayName || ''}
+          </span>
+        </div>
         <button
           onClick={() => setOpen((o) => !o)}
           aria-label="Menu"
