@@ -101,16 +101,27 @@ perform the actual JWT signature work and get the same review bar as jsonwebtoke
 ## GitHub Actions
 
 Pinned to full commit SHAs in `.github/workflows/ci.yml` (tags are mutable; SHAs are not). Each
-SHA is the commit behind the exact release tag, which was also the target of the floating `v4`
-tag at pin time — pinning changed no behavior. Update by resolving the new release tag with
-`git ls-remote --tags https://github.com/actions/<name>`, reviewing the diff between SHAs, and
-recording it here.
+SHA is the commit behind the exact release tag, which was also the target of the floating major
+tag at pin time. Update by resolving the new release tag with
+`git ls-remote --tags https://github.com/actions/<name>`, reviewing the release notes and the diff
+between SHAs, and recording it here.
 
 | Action | Release | Commit SHA | Pinned date |
 |---|---|---|---|
-| `actions/checkout` | v4.4.0 | `11d5960a326750d5838078e36cf38b85af677262` | 2026-10-26 |
-| `actions/setup-node` | v4.4.0 | `49933ea5288caeca8642d1e84afbd3f7d6820020` | 2026-10-26 |
-| `actions/upload-artifact` | v4.6.2 | `ea165f8d65b6e75b540449e92b4886f43607fa02` | 2026-10-26 |
+| `actions/checkout` | v7.0.1 | `3d3c42e5aac5ba805825da76410c181273ba90b1` | 2026-10-26 |
+| `actions/setup-node` | v7.1.0 | `949feb2413d6458794dcd2491c4babbbce0c15c1` | 2026-10-26 |
+| `actions/upload-artifact` | v7.0.2 | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` | 2026-10-26 |
+
+**v4 → v7 review (2026-10-26).** All three now run on the `node24` action runtime (GitHub-hosted
+runners satisfy the ≥2.327.1 runner requirement). Breaking changes checked against this workflow:
+- checkout v6 persists credentials to a separate file; v7 refuses fork-PR checkout under
+  `pull_request_target`/`workflow_run`. CI uses neither git push nor those triggers — no impact.
+- setup-node v5 auto-caches when `package.json` has `packageManager` (none does; `cache: npm` is
+  explicit); v6 limits auto-cache to npm; v7 drops the dummy `NODE_AUTH_TOKEN` export (CI never
+  publishes). `node-version-file: .nvmrc` is unchanged — no impact.
+- upload-artifact v7 adds `archive` (default `true`, unchanged zip behavior) — no impact.
+Every input the workflow uses (`node-version-file`, `cache`, `cache-dependency-path`, `name`,
+`path`, `retention-days`) is present in each pinned `action.yml`.
 
 ## bcrypt
 
