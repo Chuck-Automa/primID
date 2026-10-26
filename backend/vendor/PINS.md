@@ -10,7 +10,9 @@ Do NOT:
 
 To update a vendored package:
 1. Copy the new version from a clean `npm pack` or `node_modules/` after isolated install
-2. Update the version, date, and integrity hash in this file
+2. Update the version, upstream commit hash, date, and integrity hash in this file. The commit is
+   the one behind the upstream release tag (`git ls-remote --tags <repo>`), cross-checked against
+   npm's `gitHead` (`npm view <pkg>@<ver> gitHead`) — when they disagree, use the tag and note it
 3. Review the diff — treat it like a code review, not a dependency bump
 4. Record a CHANGELOG entry explaining why the update was necessary
 
@@ -21,6 +23,7 @@ To update a vendored package:
 | Field | Value |
 |---|---|
 | **Version** | 1.12.41 |
+| **Upstream commit** | `aa91fea8036e07231118e9d7db3a3f906229d820` (tag `v1.12.41`, gitlab.com/catamphetamine/libphonenumber-js; matches npm `gitHead`) |
 | **npm integrity** | `sha512-lsmMmGXBxXIK/VMLEj0kL6MtUs1kBGj1nTCzi6zgQoG1DEwqwt2DQyHxcLykceIxAnfE3hya7NuIh6PpC6S3fA==` |
 | **Pinned date** | 2026-04-12 |
 | **Risk reason** | Single maintainer; sits at the front of every phone auth code path |
@@ -31,6 +34,7 @@ To update a vendored package:
 | Field | Value |
 |---|---|
 | **Version** | 9.0.3 |
+| **Upstream commit** | `ed59e76ea37a80f54b833668c02a5271984dcba3` (tag `v9.0.3`, github.com/auth0/node-jsonwebtoken; matches npm `gitHead`) |
 | **npm integrity** | `sha512-MT/xP0CrubFRNLNKvxJ2BYfy53Zkm++5bX9dtuPbqAeQpTVe0MQTFhao8+Cp//EmJp244xt6Drw/GVEGCUj40g==` |
 | **Pinned date** | 2026-04-12 |
 | **Risk reason** | Auth infrastructure; total platform compromise if tampered |
@@ -49,22 +53,22 @@ perform the actual JWT signature work and get the same review bar as jsonwebtoke
 | **Source** | `npm pack <name>@<version>`; each tarball integrity verified equal to the backend `package-lock.json` entry before extraction; no install scripts or native bindings in any package |
 | **Reason for last update** | Initial vendoring — closes a transitive-dependency gap that left jsonwebtoken resolving its dependencies from npm |
 
-| Package | Version | npm integrity |
-|---|---|---|
-| `jws` | 4.0.1 | `sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==` |
-| `jwa` | 2.0.1 | `sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==` |
-| `ecdsa-sig-formatter` | 1.0.11 | `sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==` |
-| `buffer-equal-constant-time` | 1.0.1 | `sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==` |
-| `safe-buffer` | 5.2.1 | `sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==` |
-| `lodash.includes` | 4.3.0 | `sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==` |
-| `lodash.isboolean` | 3.0.3 | `sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==` |
-| `lodash.isinteger` | 4.0.4 | `sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==` |
-| `lodash.isnumber` | 3.0.3 | `sha512-QYqzpfwO3/CWf3XP+Z+tkQsfaLL/EnUlXWVkIk5FUPc4sBdTehEqZONuyRt2P67PXAk+NXmTBcc97zw9t1FQrw==` |
-| `lodash.isplainobject` | 4.0.6 | `sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==` |
-| `lodash.isstring` | 4.0.1 | `sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==` |
-| `lodash.once` | 4.1.1 | `sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==` |
-| `ms` | 2.1.3 | `sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==` |
-| `semver` | 7.7.4 | `sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==` |
+| Package | Version | Upstream commit | npm integrity |
+|---|---|---|---|
+| `jws` | 4.0.1 | `34c45b2c04434f925b638de6a061de9339c0ea2e` (tag `v4.0.1`; npm `gitHead` points at an unrelated 2013 commit — tag used) | `sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==` |
+| `jwa` | 2.0.1 | `02f44f3bfaacb43d5b4199157bfdc715ee2e70f0` (tag `v2.0.1`; matches `gitHead`) | `sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==` |
+| `ecdsa-sig-formatter` | 1.0.11 | `c730235f4a54526f33f5309d80beb12ee298db6b` (tag `v1.0.11`; matches `gitHead`) | `sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==` |
+| `buffer-equal-constant-time` | 1.0.1 | `a48282ae383e6728d1dea74e2de43e8a8a434326` (tag `v1.0.1`; no `gitHead` published) | `sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==` |
+| `safe-buffer` | 5.2.1 | `e4d9032c56faa8a024dce8b501b4e31d5c2ab300` (tag `v5.2.1`; `gitHead` is its parent commit — tag used) | `sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==` |
+| `lodash.includes` | 4.3.0 | — none: generated by lodash-cli `modularize`, not published from a tagged commit; pinned by integrity only | `sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==` |
+| `lodash.isboolean` | 3.0.3 | — none: generated by lodash-cli `modularize`, not published from a tagged commit; pinned by integrity only | `sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==` |
+| `lodash.isinteger` | 4.0.4 | — none: generated by lodash-cli `modularize`, not published from a tagged commit; pinned by integrity only | `sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==` |
+| `lodash.isnumber` | 3.0.3 | — none: generated by lodash-cli `modularize`, not published from a tagged commit; pinned by integrity only | `sha512-QYqzpfwO3/CWf3XP+Z+tkQsfaLL/EnUlXWVkIk5FUPc4sBdTehEqZONuyRt2P67PXAk+NXmTBcc97zw9t1FQrw==` |
+| `lodash.isplainobject` | 4.0.6 | — none: generated by lodash-cli `modularize`, not published from a tagged commit; pinned by integrity only | `sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==` |
+| `lodash.isstring` | 4.0.1 | — none: generated by lodash-cli `modularize`, not published from a tagged commit; pinned by integrity only | `sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==` |
+| `lodash.once` | 4.1.1 | — none: generated by lodash-cli `modularize`, not published from a tagged commit; pinned by integrity only | `sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==` |
+| `ms` | 2.1.3 | `1c6264b795492e8fdecbc82cb8802fcfbfc08d26` (tag `2.1.3`; matches `gitHead`) | `sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==` |
+| `semver` | 7.7.4 | `5993c2e42bdf17c5f03e6360da51bc707fcee460` (tag `v7.7.4`; matches `gitHead`) | `sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==` |
 
 ## @cyclonedx/cyclonedx-npm
 
