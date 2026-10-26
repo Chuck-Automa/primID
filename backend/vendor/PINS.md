@@ -45,6 +45,16 @@ To update a vendored package:
 | **Pinned date** | 2026-04-12 |
 | **Note** | SBOM generator — devDependency, not vendored to vendor/; pinned in package.json as exact version |
 
+## Node.js runtime
+
+| Field | Value |
+|---|---|
+| **Version** | 24.22.1 (LTS) |
+| **Pinned date** | 2026-10-26 |
+| **Reason for last update** | Node.js October 21, 2026 security releases — https://nodejs.org/en/blog/vulnerability/october-2026-security-releases (moved off EOL 20.x) |
+| **Source of truth** | `/.nvmrc` |
+| **Must match** | `engines.node` in backend, frontend, primid-social-listener `package.json`; `node-version-file: .nvmrc` in `.github/workflows/ci.yml`; `NODE_VERSION` in `render.yaml` and in each Render service dashboard (the dashboard value wins on Render) |
+
 ## bcrypt
 
 Not vendored — removed from the codebase. `bcrypt` was listed in `package.json`

@@ -2,6 +2,9 @@
   "name": "primid-backend",
   "version": "1.0.0",
   "description": "primID identity system backend",
+  "engines": {
+    "node": "24.22.1"
+  },
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",

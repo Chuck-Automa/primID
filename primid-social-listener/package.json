@@ -2,6 +2,9 @@
   "name": "primid-social-listener",
   "version": "1.0.0",
   "description": "primID social platform DM listener — Sprint 2",
+  "engines": {
+    "node": "24.22.1"
+  },
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

@@ -2,6 +2,9 @@
   "name": "primid-frontend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "24.22.1"
+  },
   "dependencies": {
     "@react-oauth/google": "0.13.4",
     "ajv": "8.18.0",
