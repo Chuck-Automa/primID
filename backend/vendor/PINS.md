@@ -36,6 +36,36 @@ To update a vendored package:
 | **Risk reason** | Auth infrastructure; total platform compromise if tampered |
 | **Import site** | `backend/src/shared/utils/jwt.util.js` |
 
+### jsonwebtoken runtime dependencies — `vendor/jsonwebtoken/node_modules/`
+
+Committed alongside jsonwebtoken so it resolves without npm. Previously these were supplied only
+implicitly, hoisted into `backend/node_modules` by the unused `twilio` dependency; removing twilio
+exposed the gap (`Cannot find module 'jws'` on a clean `npm ci`). `jws`/`jwa`/`ecdsa-sig-formatter`
+perform the actual JWT signature work and get the same review bar as jsonwebtoken itself.
+
+| Field | Value |
+|---|---|
+| **Pinned date** | 2026-10-26 |
+| **Source** | `npm pack <name>@<version>`; each tarball integrity verified equal to the backend `package-lock.json` entry before extraction; no install scripts or native bindings in any package |
+| **Reason for last update** | Initial vendoring — closes the transitive-dependency gap ahead of twilio removal |
+
+| Package | Version | npm integrity |
+|---|---|---|
+| `jws` | 4.0.1 | `sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA==` |
+| `jwa` | 2.0.1 | `sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg==` |
+| `ecdsa-sig-formatter` | 1.0.11 | `sha512-nagl3RYrbNv6kQkeJIpt6NJZy8twLB/2vtz6yN9Z4vRKHN4/QZJIEbqohALSgwKdnksuY3k5Addp5lg8sVoVcQ==` |
+| `buffer-equal-constant-time` | 1.0.1 | `sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==` |
+| `safe-buffer` | 5.2.1 | `sha512-rp3So07KcdmmKbGvgaNxQSJr7bGVSVk5S9Eq1F+ppbRo70+YeaDxkw5Dd8NPN+GD6bjnYm2VuPuCXmpuYvmCXQ==` |
+| `lodash.includes` | 4.3.0 | `sha512-W3Bx6mdkRTGtlJISOvVD/lbqjTlPPUDTMnlXZFnVwi9NKJ6tiAk6LVdlhZMm17VZisqhKcgzpO5Wz91PCt5b0w==` |
+| `lodash.isboolean` | 3.0.3 | `sha512-Bz5mupy2SVbPHURB98VAcw+aHh4vRV5IPNhILUCsOzRmsTmSQ17jIuqopAentWoehktxGd9e/hbIXq980/1QJg==` |
+| `lodash.isinteger` | 4.0.4 | `sha512-DBwtEWN2caHQ9/imiNeEA5ys1JoRtRfY3d7V9wkqtbycnAmTvRRmbHKDV4a0EYc678/dia0jrte4tjYwVBaZUA==` |
+| `lodash.isnumber` | 3.0.3 | `sha512-QYqzpfwO3/CWf3XP+Z+tkQsfaLL/EnUlXWVkIk5FUPc4sBdTehEqZONuyRt2P67PXAk+NXmTBcc97zw9t1FQrw==` |
+| `lodash.isplainobject` | 4.0.6 | `sha512-oSXzaWypCMHkPC3NvBEaPHf0KsA5mvPrOPgQWDsbg8n7orZ290M0BmC/jgRZ4vcJ6DTAhjrsSYgdsW/F+MFOBA==` |
+| `lodash.isstring` | 4.0.1 | `sha512-0wJxfxH1wgO3GrbuP+dTTk7op+6L41QCXbGINEmD+ny/G/eCqGzxyCsh7159S+mgDDcoarnBw6PC1PS5+wUGgw==` |
+| `lodash.once` | 4.1.1 | `sha512-Sb487aTOCr9drQVL8pIxOzVhafOjZN9UU54hiN8PU3uAiSV7lx1yYNpbNmex2PK6dSJoNTSJUUswT651yww3Mg==` |
+| `ms` | 2.1.3 | `sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==` |
+| `semver` | 7.7.4 | `sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==` |
+
 ## @cyclonedx/cyclonedx-npm
 
 | Field | Value |

@@ -1,5 +1,7 @@
 # === Dependencies ===
 node_modules/
+# Vendored jsonwebtoken runtime deps are committed, not npm-managed (see backend/vendor/PINS.md)
+!backend/vendor/jsonwebtoken/node_modules/
 .pnp
 .pnp.js
 
