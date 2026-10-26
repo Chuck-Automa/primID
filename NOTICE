@@ -1,0 +1,83 @@
+primID
+Copyright (C) 2026 PrimID Foundation
+
+SPDX-License-Identifier: AGPL-3.0-only
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, version 3 of the License.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+---
+
+Third-Party Components
+
+This software includes the following vendored third-party components.
+Each component's original license file is preserved in its vendor directory.
+
+libphonenumber-js 1.12.41
+  License: MIT (backend/vendor/libphonenumber-js/LICENSE)
+  Copyright (c) 2016 @catamphetamine
+  Includes phone number metadata derived from Google's libphonenumber,
+  licensed under the Apache License 2.0 (backend/vendor/libphonenumber-js/LICENSE.Apache)
+  Source: https://gitlab.com/catamphetamine/libphonenumber-js
+
+jsonwebtoken 9.0.3
+  License: MIT (backend/vendor/jsonwebtoken/LICENSE)
+  Copyright (c) 2015 Auth0, Inc.
+  Source: https://github.com/auth0/node-jsonwebtoken
+
+The following packages are vendored as jsonwebtoken's runtime dependencies under
+backend/vendor/jsonwebtoken/node_modules/<package>/, each with its original license file.
+
+jws 4.0.1
+  License: MIT (backend/vendor/jsonwebtoken/node_modules/jws/LICENSE)
+  Copyright (c) 2013 Brian J. Brennan
+  Source: https://github.com/brianloveswords/node-jws
+
+jwa 2.0.1
+  License: MIT (backend/vendor/jsonwebtoken/node_modules/jwa/LICENSE)
+  Copyright (c) 2013 Brian J. Brennan
+  Source: https://github.com/brianloveswords/node-jwa
+
+ecdsa-sig-formatter 1.0.11
+  License: Apache-2.0 (backend/vendor/jsonwebtoken/node_modules/ecdsa-sig-formatter/LICENSE)
+  Copyright 2015 D2L Corporation
+  Source: https://github.com/Brightspace/node-ecdsa-sig-formatter
+
+buffer-equal-constant-time 1.0.1
+  License: BSD-3-Clause (backend/vendor/jsonwebtoken/node_modules/buffer-equal-constant-time/LICENSE.txt)
+  Copyright (c) 2013, GoInstant Inc., a salesforce.com company
+  Source: https://github.com/goinstant/buffer-equal-constant-time
+
+safe-buffer 5.2.1
+  License: MIT (backend/vendor/jsonwebtoken/node_modules/safe-buffer/LICENSE)
+  Copyright (c) Feross Aboukhadijeh
+  Source: https://github.com/feross/safe-buffer
+
+ms 2.1.3
+  License: MIT (backend/vendor/jsonwebtoken/node_modules/ms/license.md)
+  Copyright (c) 2020 Vercel, Inc.
+  Source: https://github.com/vercel/ms
+
+semver 7.7.4
+  License: ISC (backend/vendor/jsonwebtoken/node_modules/semver/LICENSE)
+  Copyright (c) Isaac Z. Schlueter and Contributors
+  Source: https://github.com/npm/node-semver
+
+lodash.includes 4.3.0, lodash.isinteger 4.0.4, lodash.isplainobject 4.0.6, lodash.once 4.1.1
+  License: MIT (backend/vendor/jsonwebtoken/node_modules/<package>/LICENSE)
+  Copyright jQuery Foundation and other contributors <https://jquery.org/>
+  Source: https://github.com/lodash/lodash
+
+lodash.isboolean 3.0.3, lodash.isnumber 3.0.3, lodash.isstring 4.0.1
+  License: MIT (backend/vendor/jsonwebtoken/node_modules/<package>/LICENSE)
+  Copyright 2012-2016 The Dojo Foundation <http://dojofoundation.org/>
+  Source: https://github.com/lodash/lodash

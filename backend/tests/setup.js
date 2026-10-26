@@ -6,7 +6,3 @@ process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
 process.env.ALE_ENCRYPTION_KEY = '0'.repeat(64);
 // Separate HMAC secret — must not equal the encryption key.
 process.env.HMAC_SECRET = 'test-hmac-secret-for-unit-tests-only-do-not-use!!';
-// Ensure no Twilio creds so OTP falls back to dev stub mode
-delete process.env.TWILIO_ACCOUNT_SID;
-delete process.env.TWILIO_AUTH_TOKEN;
-delete process.env.TWILIO_PHONE_NUMBER;

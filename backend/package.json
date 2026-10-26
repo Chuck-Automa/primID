@@ -2,6 +2,9 @@
   "name": "primid-backend",
   "version": "1.0.0",
   "description": "primID identity system backend",
+  "engines": {
+    "node": "24.22.1"
+  },
   "main": "server.js",
   "scripts": {
     "dev": "nodemon server.js",
@@ -27,8 +30,7 @@
     "helmet": "7.2.0",
     "jose": "4.15.9",
     "morgan": "1.10.1",
-    "prisma": "5.22.0",
-    "twilio": "5.13.0"
+    "prisma": "5.22.0"
   },
   "devDependencies": {
     "@cyclonedx/cyclonedx-npm": "4.2.1",

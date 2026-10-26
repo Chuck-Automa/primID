@@ -2,11 +2,14 @@
   "name": "primid-social-listener",
   "version": "1.0.0",
   "description": "primID social platform DM listener — Sprint 2",
+  "engines": {
+    "node": "24.22.1"
+  },
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "node --test test/"
+    "test": "node --test"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",
