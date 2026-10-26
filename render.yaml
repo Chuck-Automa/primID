@@ -1,3 +1,5 @@
+permissions: contents: read
+
 databases:
   - name: primid-db
     databaseName: primid
