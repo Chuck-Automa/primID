@@ -77,6 +77,11 @@ describe('POST /api/auth/register', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.accessToken).toBeDefined();
+      // Google token is sent in the POST body, never in the tokeninfo URL
+      const [tokeninfoUrl, tokeninfoInit] = global.fetch.mock.calls[0];
+      expect(tokeninfoUrl).toBe('https://www.googleapis.com/oauth2/v3/tokeninfo');
+      expect(tokeninfoInit.method).toBe('POST');
+      expect(tokeninfoInit.body.get('access_token')).toBe('valid-google-token');
       const cookies = res.headers['set-cookie'];
       expect(cookies).toBeDefined();
       expect(cookies.some(c => c.startsWith('primid_rt='))).toBe(true);

@@ -233,9 +233,12 @@ const verifyOAuth = async (req, res, next) => {
 
     if (provider === 'google') {
       try {
-        const tokeninfoResp = await fetch(
-          `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`
-        );
+        // Token goes in the POST body, never the URL — URLs end up in proxy and upstream logs.
+        const tokeninfoResp = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body:    new URLSearchParams({ access_token: token }),
+        });
         if (!tokeninfoResp.ok) {
           return res.status(401).json({ success: false, message: 'Invalid Google token.' });
         }
