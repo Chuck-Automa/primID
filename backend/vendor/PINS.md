@@ -39,15 +39,15 @@ To update a vendored package:
 ### jsonwebtoken runtime dependencies — `vendor/jsonwebtoken/node_modules/`
 
 Committed alongside jsonwebtoken so it resolves without npm. Previously these were supplied only
-implicitly, hoisted into `backend/node_modules` by the unused `twilio` dependency; removing twilio
-exposed the gap (`Cannot find module 'jws'` on a clean `npm ci`). `jws`/`jwa`/`ecdsa-sig-formatter`
+implicitly, hoisted into `backend/node_modules` by an unrelated, unused dependency (since removed);
+without it a clean `npm ci` fails with `Cannot find module 'jws'`. `jws`/`jwa`/`ecdsa-sig-formatter`
 perform the actual JWT signature work and get the same review bar as jsonwebtoken itself.
 
 | Field | Value |
 |---|---|
 | **Pinned date** | 2026-10-26 |
 | **Source** | `npm pack <name>@<version>`; each tarball integrity verified equal to the backend `package-lock.json` entry before extraction; no install scripts or native bindings in any package |
-| **Reason for last update** | Initial vendoring — closes the transitive-dependency gap ahead of twilio removal |
+| **Reason for last update** | Initial vendoring — closes a transitive-dependency gap that left jsonwebtoken resolving its dependencies from npm |
 
 | Package | Version | npm integrity |
 |---|---|---|
@@ -84,6 +84,29 @@ perform the actual JWT signature work and get the same review bar as jsonwebtoke
 | **Reason for last update** | Node.js October 21, 2026 security releases — https://nodejs.org/en/blog/vulnerability/october-2026-security-releases (moved off EOL 20.x) |
 | **Source of truth** | `/.nvmrc` |
 | **Must match** | `engines.node` in backend, frontend, primid-social-listener `package.json`; `node-version-file: .nvmrc` in `.github/workflows/ci.yml`; `NODE_VERSION` in `render.yaml` and in each Render service dashboard (the dashboard value wins on Render) |
+
+## Socket.dev CLI
+
+| Field | Value |
+|---|---|
+| **Version** | `@socketsecurity/cli@1.1.82` |
+| **Pinned date** | 2026-10-26 (first recorded here; version already in use in CI) |
+| **Used in** | `.github/workflows/ci.yml` — Socket.dev supply chain scan step in the backend, frontend, and social-listener jobs, invoked as `npx --yes @socketsecurity/cli@1.1.82 scan create --defaultBranch --pendingHead` |
+| **Note** | Not a dependency of any package; fetched by exact version at CI time. Do not use `SocketDev/action@v1` (broken in `mode: cli`) |
+
+## GitHub Actions
+
+Pinned to full commit SHAs in `.github/workflows/ci.yml` (tags are mutable; SHAs are not). Each
+SHA is the commit behind the exact release tag, which was also the target of the floating `v4`
+tag at pin time — pinning changed no behavior. Update by resolving the new release tag with
+`git ls-remote --tags https://github.com/actions/<name>`, reviewing the diff between SHAs, and
+recording it here.
+
+| Action | Release | Commit SHA | Pinned date |
+|---|---|---|---|
+| `actions/checkout` | v4.4.0 | `11d5960a326750d5838078e36cf38b85af677262` | 2026-10-26 |
+| `actions/setup-node` | v4.4.0 | `49933ea5288caeca8642d1e84afbd3f7d6820020` | 2026-10-26 |
+| `actions/upload-artifact` | v4.6.2 | `ea165f8d65b6e75b540449e92b4886f43607fa02` | 2026-10-26 |
 
 ## bcrypt
 
