@@ -121,3 +121,58 @@ jobs:
           path: frontend/sbom.json
           retention-days: 90
 
+  social-listener:
+    name: Social listener — test, SBOM
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: primid-social-listener
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            primid-social-listener/package-lock.json
+
+      # The listener imports shared services and the generated Prisma client
+      # from backend/, so the backend tree is installed and generated first —
+      # same as the Render build command for this service.
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --ignore-scripts
+
+      - name: Generate Prisma client
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run tests
+        run: npm test
+
+      # Socket.dev supply chain analysis via the official CLI.
+      - name: Socket.dev supply chain scan
+        if: ${{ vars.SOCKET_ENABLED == 'true' }}
+        run: npx --yes @socketsecurity/cli@1.1.82 scan create --defaultBranch --pendingHead
+        env:
+          SOCKET_SECURITY_API_KEY: ${{ secrets.SOCKET_SECURITY_API_KEY }}
+
+      # Reuses the backend's pinned @cyclonedx/cyclonedx-npm devDependency
+      # (installed above) — no extra install into the listener tree.
+      - name: Generate SBOM
+        run: ../backend/node_modules/.bin/cyclonedx-npm --output-file sbom.json --output-format JSON
+
+      - name: Archive SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-social-listener-${{ github.sha }}
+          path: primid-social-listener/sbom.json
+          retention-days: 90
