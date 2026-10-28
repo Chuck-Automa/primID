@@ -24,7 +24,7 @@
     "@prisma/client": "5.22.0",
     "cors": "2.8.6",
     "dotenv": "16.6.1",
-    "express": "4.22.1",
+    "express": "4.22.3",
     "express-rate-limit": "7.5.1",
     "express-validator": "7.3.1",
     "helmet": "7.2.0",
