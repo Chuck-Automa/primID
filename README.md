@@ -79,7 +79,7 @@ render.yaml              Deployment blueprint
 
 ## Getting started
 
-**Requirements:** Node.js 22 LTS and PostgreSQL 15 or newer.
+**Requirements:** Node.js 24 LTS and PostgreSQL 15 or newer.
 
 This project treats the npm supply chain as an attack surface. **Always install with
 `npm ci --ignore-scripts`, never `npm install`.** Lockfiles are authoritative, dependency
